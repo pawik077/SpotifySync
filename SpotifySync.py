@@ -35,5 +35,20 @@ def addToPlaylist(playlistId: str, uri: str, pos: int) -> requests.models.Respon
   response = requests.request('POST', url, headers=headers)
   return response
 
+def removeFromPlaylist(playlistId: str, uri: str) -> requests.models.Response:
+  url = 'https://api.spotify.com/v1/playlists/' + playlistId + '/tracks'
+  headers = {
+      'Authorization': authKey
+  }
+  payload = '{\
+    "tracks": [\
+        {\
+            "uri": "' + uri + '"\
+        }\
+    ]\
+  }'
+  response = requests.request('DELETE', url, headers=headers, data=payload)
+  return response
+
 settings = json.load(open('settings.json', 'r'))
 authKey = 'Bearer ' + authorize()
