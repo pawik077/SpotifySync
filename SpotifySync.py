@@ -27,5 +27,13 @@ def authorize() -> str:
   response = requests.request('POST', url, headers=headers, data=payload)
   return json.loads(response.text)['access_token']
 
+def addToPlaylist(playlistId: str, uri: str, pos: int) -> requests.models.Response:
+  url = 'https://api.spotify.com/v1/playlists/' + playlistId + '/tracks?uris=' + uri + '&position=' + str(pos)
+  headers = {
+    'Authorization': authKey
+  }
+  response = requests.request('POST', url, headers=headers)
+  return response
+
 settings = json.load(open('settings.json', 'r'))
 authKey = 'Bearer ' + authorize()
