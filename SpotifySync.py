@@ -50,5 +50,19 @@ def removeFromPlaylist(playlistId: str, uri: str) -> requests.models.Response:
   response = requests.request('DELETE', url, headers=headers, data=payload)
   return response
 
+def reorderPlaylist(playlistId: str, initPos: int, endPos: int) -> requests.models.Response:
+  url = 'https://api.spotify.com/v1/playlists/' + playlistId + '/tracks'
+  headers = {
+      'Authorization': authKey,
+      'Content-Type': 'application/json'
+  }
+  payload = '{\
+    "range_start": ' + str(initPos) + ',\
+    "insert_before": ' + str(endPos) + '\
+    }'
+  print(payload)
+  response = requests.request('PUT', url, headers=headers, data=payload)
+  return response
+
 settings = json.load(open('settings.json', 'r'))
 authKey = 'Bearer ' + authorize()
