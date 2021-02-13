@@ -27,6 +27,38 @@ def authorize() -> str:
   response = requests.request('POST', url, headers=headers, data=payload)
   return json.loads(response.text)['access_token']
 
+def getPlaylist(playlistId: str) -> Track:
+  playlist = []
+  next = None
+  url = 'https://api.spotify.com/v1/playlists/' + playlistId + '/tracks'
+  headers = {
+      'Authorization': authKey
+  }
+  response = json.loads(requests.request('GET', url, headers=headers).text)
+  for item in response['items']:
+    track = Track(item['track']['name'], '', item['track']['uri'])
+    artists = len(item['track']['artists'])
+    for artist in item['track']['artists']:
+      track.artist += artist['name']
+      artists -= 1
+      if artists != 0:
+        track.artist += ', '
+    playlist.append(track)
+  next = response['next']
+  while next != None:
+    response = json.loads(requests.request('GET', next, headers=headers).text)
+    for item in response['items']:
+      track = Track(item['track']['name'], '', item['track']['uri'])
+      artists = len(item['track']['artists'])
+      for artist in item['track']['artists']:
+        track.artist += artist['name']
+        artists -= 1
+        if artists != 0:
+          track.artist += ', '
+      playlist.append(track)
+    next = response['next']
+  return playlist
+
 def addToPlaylist(playlistId: str, uri: str, pos: int) -> requests.models.Response:
   url = 'https://api.spotify.com/v1/playlists/' + playlistId + '/tracks?uris=' + uri + '&position=' + str(pos)
   headers = {
