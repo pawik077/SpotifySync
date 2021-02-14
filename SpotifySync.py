@@ -29,24 +29,12 @@ def authorize() -> str:
 
 def getPlaylist(playlistId: str) -> Track:
   playlist = []
-  next = None
   url = 'https://api.spotify.com/v1/playlists/' + playlistId + '/tracks'
   headers = {
       'Authorization': authKey
   }
-  response = json.loads(requests.request('GET', url, headers=headers).text)
-  for item in response['items']:
-    track = Track(item['track']['name'], '', item['track']['uri'])
-    artists = len(item['track']['artists'])
-    for artist in item['track']['artists']:
-      track.artist += artist['name']
-      artists -= 1
-      if artists != 0:
-        track.artist += ', '
-    playlist.append(track)
-  next = response['next']
-  while next != None:
-    response = json.loads(requests.request('GET', next, headers=headers).text)
+  while url != None:
+    response = json.loads(requests.request('GET', url, headers=headers).text)
     for item in response['items']:
       track = Track(item['track']['name'], '', item['track']['uri'])
       artists = len(item['track']['artists'])
@@ -56,7 +44,7 @@ def getPlaylist(playlistId: str) -> Track:
         if artists != 0:
           track.artist += ', '
       playlist.append(track)
-    next = response['next']
+    url = response['next']
   return playlist
 
 def addToPlaylist(playlistId: str, uri: str, pos: int) -> requests.models.Response:
