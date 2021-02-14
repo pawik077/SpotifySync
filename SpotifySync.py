@@ -113,3 +113,18 @@ for track in mergedPlaylist:
     removeFromPlaylist(settings['merge_playlist'], track.uri)
     mergedPlaylist.remove(track)
     print(f'Removed {track.title} by {track.artist} from merged playlist')
+
+index = 0
+for playlist in playlists:
+  for track in playlist[1]:
+    if track not in mergedPlaylist:
+      addToPlaylist(settings['merge_playlist'], track.uri, index + playlist[1].index(track))
+      mergedPlaylist.insert(index + playlist[1].index(track), track)
+      print(f'Added {track.title} by {track.artist} from {playlist[0]} to merged playlist')
+    if mergedPlaylist.index(track) != index + playlist[1].index(track):
+      reorderPlaylist(settings['merge_playlist'], mergedPlaylist.index(track), index + playlist[1].index(track))
+      oldIndex = mergedPlaylist.index(track)
+      mergedPlaylist.remove(track)
+      mergedPlaylist.insert(index + playlist[1].index(track), track)
+      print(f'Moved {track.title} by {track.artist} from position {oldIndex} to {mergedPlaylist.index(track)}')
+  index += len(playlist[1])
