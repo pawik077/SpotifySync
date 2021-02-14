@@ -92,7 +92,6 @@ def reorderPlaylist(playlistId: str, initPos: int, endPos: int) -> requests.mode
     "range_start": ' + str(initPos) + ',\
     "insert_before": ' + str(endPos) + '\
     }'
-  print(payload)
   response = requests.request('PUT', url, headers=headers, data=payload)
   return response
 
