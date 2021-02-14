@@ -104,3 +104,13 @@ playlists = []
 mergedPlaylist = getPlaylist(settings['merge_playlist'])
 for playlist in settings['playlists']:
   playlists.append((playlist['name'], getPlaylist(playlist['id'])))
+
+for track in mergedPlaylist:
+  found = False
+  for playlist in playlists:
+    if track in playlist[1]:
+      found = True
+  if found == False:
+    removeFromPlaylist(settings['merge_playlist'], track.uri)
+    mergedPlaylist.remove(track)
+    print(f'Removed {track.title} by {track.artist} from merged playlist')
