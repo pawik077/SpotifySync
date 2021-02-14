@@ -98,3 +98,9 @@ def reorderPlaylist(playlistId: str, initPos: int, endPos: int) -> requests.mode
 
 settings = json.load(open('settings.json', 'r'))
 authKey = 'Bearer ' + authorize()
+
+playlists = []
+
+mergedPlaylist = getPlaylist(settings['merge_playlist'])
+for playlist in settings['playlists']:
+  playlists.append((playlist['name'], getPlaylist(playlist['id'])))
