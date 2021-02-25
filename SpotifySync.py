@@ -143,7 +143,13 @@ for playlist in playlists:
       mergedPlaylist.insert(index + playlist[1].index(track), track)
       print(f'Added {track.title} by {track.artist} from {playlist[0]} to merged playlist')
     if mergedPlaylist.index(track) != index + playlist[1].index(track):
-      reorderPlaylist(settings['merge_playlist'], mergedPlaylist.index(track), index + playlist[1].index(track))
+      try:
+        reorderPlaylist(settings['merge_playlist'], mergedPlaylist.index(track), index + playlist[1].index(track)).raise_for_status()
+      except requests.exceptions.HTTPError as status:
+        sys.stderr.write(f'=== {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ===\n')
+        sys.stderr.write(f'An error occured while moving {track.title} by {track.artist} from position {mergedPlaylist.index(track)} to {index + playlist[1].index(track)}!!\n')
+        sys.stderr.write(f'Server response: {status}\n')
+        continue
       oldIndex = mergedPlaylist.index(track)
       mergedPlaylist.remove(track)
       mergedPlaylist.insert(index + playlist[1].index(track), track)
