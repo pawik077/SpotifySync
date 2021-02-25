@@ -123,7 +123,7 @@ for track in mergedPlaylist:
       removeFromPlaylist(settings['merge_playlist'], track.uri).raise_for_status()
     except requests.exceptions.HTTPError as status:
       sys.stderr.write(f'=== {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ===\n')
-      sys.stderr.write(f'An error removing {track.title} by {track.artist} from merged playlist!!\n')
+      sys.stderr.write(f'An error occured while removing {track.title} by {track.artist} from merged playlist!!\n')
       sys.stderr.write(f'Server response: {status}\n')
       continue
     mergedPlaylist.remove(track)
@@ -137,7 +137,7 @@ for playlist in playlists:
         addToPlaylist(settings['merge_playlist'], track.uri, index + playlist[1].index(track)).raise_for_status()
       except requests.exceptions.HTTPError as status:
         sys.stderr.write(f'=== {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ===\n')
-        sys.stderr.write(f'An error occured while adding {track.title} by {track.artist} from {playlist[0]} tomerged playlist!!\n')
+        sys.stderr.write(f'An error occured while adding {track.title} by {track.artist} from {playlist[0]} to merged playlist!!\n')
         sys.stderr.write(f'Server response: {status}\n')
         continue
       mergedPlaylist.insert(index + playlist[1].index(track), track)
