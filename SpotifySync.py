@@ -133,7 +133,13 @@ index = 0
 for playlist in playlists:
   for track in playlist[1]:
     if track not in mergedPlaylist:
-      addToPlaylist(settings['merge_playlist'], track.uri, index + playlist[1].index(track))
+      try:
+        addToPlaylist(settings['merge_playlist'], track.uri, index + playlist[1].index(track)).raise_for_status()
+      except requests.exceptions.HTTPError as status:
+        sys.stderr.write(f'=== {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ===\n')
+        sys.stderr.write(f'An error occured while adding {track.title} by {track.artist} from {playlist[0]} tomerged playlist!!\n')
+        sys.stderr.write(f'Server response: {status}\n')
+        continue
       mergedPlaylist.insert(index + playlist[1].index(track), track)
       print(f'Added {track.title} by {track.artist} from {playlist[0]} to merged playlist')
     if mergedPlaylist.index(track) != index + playlist[1].index(track):
