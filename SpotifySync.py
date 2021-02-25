@@ -43,8 +43,15 @@ def getPlaylist(playlistId: str) -> Track:
       'Authorization': authKey
   }
   while url != None:
-    response = json.loads(requests.request('GET', url, headers=headers).text)
-    for item in response['items']:
+    response = requests.request('GET', url, headers=headers)
+    try:
+      response.raise_for_status()
+    except requests.exceptions.HTTPError() as status:
+      sys.stderr.write(f'=== {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ===\n')
+      sys.stderr.write('An error occured while downloading playlist contents!!\n')
+      sys.stderr.write(f'Server response: {status}\n')
+      sys.exit(-2)
+    for item in json.loads(response.text)['items']:
       track = Track(item['track']['name'], '', item['track']['uri'])
       artists = len(item['track']['artists'])
       for artist in item['track']['artists']:
@@ -53,7 +60,7 @@ def getPlaylist(playlistId: str) -> Track:
         if artists != 0:
           track.artist += ', '
       playlist.append(track)
-    url = response['next']
+    url = json.loads(response.text)['next']
   return playlist
 
 def addToPlaylist(playlistId: str, uri: str, pos: int) -> requests.models.Response:
