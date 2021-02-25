@@ -1,5 +1,7 @@
 import json
 import requests
+import sys
+import datetime
 
 class Track:
   def __init__(self, title: str = '', artist: str = '', uri: str = '') -> None:
@@ -25,6 +27,13 @@ def authorize() -> str:
     'Content-Type': 'application/x-www-form-urlencoded'
   }
   response = requests.request('POST', url, headers=headers, data=payload)
+  try:
+    response.raise_for_status()
+  except requests.exceptions.HTTPError as status:
+    sys.stderr.write(f'=== {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ===\n')
+    sys.stderr.write('An error occured while getting authorization key!!\n')
+    sys.stderr.write(f'Server response: {status}\n')
+    sys.exit(-1)
   return json.loads(response.text)['access_token']
 
 def getPlaylist(playlistId: str) -> Track:
