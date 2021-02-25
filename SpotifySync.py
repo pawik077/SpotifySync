@@ -26,9 +26,14 @@ def authorize() -> str:
     'Authorization': 'Basic ' + settings['authorization_token'],
     'Content-Type': 'application/x-www-form-urlencoded'
   }
-  response = requests.request('POST', url, headers=headers, data=payload)
   try:
+    response = requests.request('POST', url, headers=headers, data=payload)
     response.raise_for_status()
+  except requests.exceptions.ConnectionError:
+    sys.stderr.write(f'=== {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ===\n')
+    sys.stderr.write('An error occured while getting authorization key!!\n')
+    sys.stderr.write(f'Server connection error\n')
+    sys.exit(-10)
   except requests.exceptions.HTTPError as status:
     sys.stderr.write(f'=== {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ===\n')
     sys.stderr.write('An error occured while getting authorization key!!\n')
