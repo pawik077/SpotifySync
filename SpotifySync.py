@@ -119,7 +119,13 @@ for track in mergedPlaylist:
     if track in playlist[1]:
       found = True
   if found == False:
-    removeFromPlaylist(settings['merge_playlist'], track.uri)
+    try:
+      removeFromPlaylist(settings['merge_playlist'], track.uri).raise_for_status()
+    except requests.exceptions.HTTPError as status:
+      sys.stderr.write(f'=== {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ===\n')
+      sys.stderr.write(f'An error removing {track.title} by {track.artist} from merged playlist!!\n')
+      sys.stderr.write(f'Server response: {status}\n')
+      continue
     mergedPlaylist.remove(track)
     print(f'Removed {track.title} by {track.artist} from merged playlist')
 
