@@ -27,7 +27,7 @@ def authorize() -> str:
     'Content-Type': 'application/x-www-form-urlencoded'
   }
   try:
-    response = requests.request('POST', url, headers=headers, data=payload)
+    response = requests.post(url, headers=headers, data=payload)
     response.raise_for_status()
   except requests.exceptions.ConnectionError:
     sys.stderr.write(f'=== {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ===\n')
@@ -48,7 +48,7 @@ def getPlaylist(playlistId: str) -> Track:
       'Authorization': authKey
   }
   while url != None:
-    response = requests.request('GET', url, headers=headers)
+    response = requests.get(url, headers=headers)
     try:
       response.raise_for_status()
     except requests.exceptions.HTTPError() as status:
@@ -73,7 +73,7 @@ def addToPlaylist(playlistId: str, uri: str, pos: int) -> requests.models.Respon
   headers = {
     'Authorization': authKey
   }
-  response = requests.request('POST', url, headers=headers)
+  response = requests.post(url, headers=headers)
   return response
 
 def removeFromPlaylist(playlistId: str, uri: str) -> requests.models.Response:
@@ -88,7 +88,7 @@ def removeFromPlaylist(playlistId: str, uri: str) -> requests.models.Response:
         }\
     ]\
   }'
-  response = requests.request('DELETE', url, headers=headers, data=payload)
+  response = requests.delete(url, headers=headers, data=payload)
   return response
 
 def reorderPlaylist(playlistId: str, initPos: int, endPos: int) -> requests.models.Response:
@@ -101,7 +101,7 @@ def reorderPlaylist(playlistId: str, initPos: int, endPos: int) -> requests.mode
     "range_start": ' + str(initPos) + ',\
     "insert_before": ' + str(endPos) + '\
     }'
-  response = requests.request('PUT', url, headers=headers, data=payload)
+  response = requests.put(url, headers=headers, data=payload)
   return response
 
 settings = json.load(open('settings.json', 'r'))
