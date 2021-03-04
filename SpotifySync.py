@@ -45,7 +45,7 @@ def getPlaylist(playlistId: str) -> Track:
     response = requests.get(url, headers=headers)
     try:
       response.raise_for_status()
-    except requests.exceptions.HTTPError() as status:
+    except requests.exceptions.HTTPError as status:
       sys.stderr.write(f'=== {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ===\n')
       sys.stderr.write('An error occured while downloading playlist contents!!\n')
       sys.stderr.write(f'Server response: {status}\n')
