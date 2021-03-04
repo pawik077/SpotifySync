@@ -9,15 +9,9 @@ class Track:
     self.title = title
     self.uri = uri
   def __eq__(self, o: object) -> bool:
-      if self.uri == o.uri:
-        return True
-      else:
-        return False
+      return self.uri == o.uri
   def __ne__(self, o: object) -> bool:
-      if self.uri != o.uri:
-        return True
-      else:
-        return False
+      return self.uri != o.uri
 
 def authorize() -> str:
   url = "https://accounts.spotify.com/api/token"
