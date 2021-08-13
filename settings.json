@@ -1,0 +1,31 @@
+{
+  "authorization_token": "Yzg5YWI2NjhkMWIwNDA2OWIwM2I3OTNjOTQwYmQ1YjQ6ODc4ZTk4OWQ1MjZiNDRjZWJlYWMzNTZhMTYwODczZTE=",
+  "refresh_token": "AQDxNZiCCsYjiKKgTz4YRmOXxNwdzeowRluB6UKymiOKtu83y69n7tHEMf9VYGaaWCJt4TNnYdb79d7N6ExVg3tfALZhhaapdk5ht10_2-tc82iVtgniwExbGa_kn9-Qi9w",
+  "playlists": [
+    {
+      "name": "Metale Ciężkie",
+      "id": "3gwBhxLi0SFlfeoVpYwyXm"
+    },
+    {
+      "name": "Skała",
+      "id": "27rsJN6qsHKhSlZTX50lfh"
+    },
+    {
+      "name": "Old AF",
+      "id": "4wqpr1varn7CW07E5VhWAl"
+    },
+    {
+      "name": "Black People Music",
+      "id": "5sjhWAZRDpQXg95EqsIASd"
+    },
+    {
+      "name": "Miski",
+      "id": "07Hza86ku8NOyKq6ZK5xDL"
+    },
+    {
+      "name": "SP",
+      "id": "06RSNpWML5sOI3JCHfYhq8"
+    }
+  ],
+  "merge_playlist": "4MYbMOu2SfIPQx69XT3cKu"
+}
