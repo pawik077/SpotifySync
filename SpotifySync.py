@@ -98,7 +98,8 @@ def reorderPlaylist(playlistId: str, initPos: int, endPos: int) -> requests.mode
 	response = requests.put(url, headers=headers, data=payload)
 	return response
 
-settings = json.load(open('settings.json', 'r'))
+with open('settings.json', 'r') as s:
+	settings = json.load(s)
 authKey = 'Bearer ' + authorize()
 
 playlists = []
