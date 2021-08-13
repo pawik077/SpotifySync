@@ -24,14 +24,11 @@ def authorize() -> str:
 		response = requests.post(url, headers=headers, data=payload)
 		response.raise_for_status()
 	except requests.exceptions.ConnectionError:
-		sys.stderr.write(f'=== {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ===\n')
-		sys.stderr.write('An error occured while getting authorization key!!\n')
-		sys.stderr.write(f'Server connection error\n')
+		sys.stderr.write(
+			f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Error while getting authorization key - Server connection error\n')
 		sys.exit(-10)
 	except requests.exceptions.HTTPError as status:
-		sys.stderr.write(f'=== {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ===\n')
-		sys.stderr.write('An error occured while getting authorization key!!\n')
-		sys.stderr.write(f'Server response: {status}\n')
+		sys.stderr.write(f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Error while getting authorization key - Server response: {status}\n')
 		sys.exit(-1)
 	return json.loads(response.text)['access_token']
 
@@ -46,9 +43,7 @@ def getPlaylist(playlistId: str) -> Track:
 		try:
 			response.raise_for_status()
 		except requests.exceptions.HTTPError as status:
-			sys.stderr.write(f'=== {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ===\n')
-			sys.stderr.write('An error occured while downloading playlist contents!!\n')
-			sys.stderr.write(f'Server response: {status}\n')
+			sys.stderr.write(f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Error while downloading playlist contents - Server response: {status}\n')
 			sys.exit(-2)
 		for item in json.loads(response.text)['items']:
 			track = Track(item['track']['name'], '', item['track']['uri'])
@@ -97,9 +92,12 @@ def reorderPlaylist(playlistId: str, initPos: int, endPos: int) -> requests.mode
 	}'
 	response = requests.put(url, headers=headers, data=payload)
 	return response
-
-with open('settings.json', 'r') as s:
-	settings = json.load(s)
+try:
+	with open('settings.json', 'r') as s:
+		settings = json.load(s)
+except FileNotFoundError:
+	sys.stderr.write(f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Error while reading settings file - settings.json file not found\n')
+	sys.exit(-2)
 authKey = 'Bearer ' + authorize()
 
 playlists = []
@@ -117,12 +115,11 @@ for track in mergedPlaylist:
 		try:
 			removeFromPlaylist(settings['merge_playlist'], track.uri).raise_for_status()
 		except requests.exceptions.HTTPError as status:
-			sys.stderr.write(f'=== {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ===\n')
-			sys.stderr.write(f'An error occured while removing {track.title} by {track.artist} from merged playlist!!\n')
-			sys.stderr.write(f'Server response: {status}\n')
+			sys.stderr.write(
+				f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Error while removing {track.title} by {track.artist} from merged playlist - Server response: {status}\n')
 			continue
 		mergedPlaylist.remove(track)
-		print(f'Removed {track.title} by {track.artist} from merged playlist')
+		print(f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Removed {track.title} by {track.artist} from merged playlist')
 
 index = 0
 for playlist in playlists:
@@ -131,22 +128,21 @@ for playlist in playlists:
 			try:
 				addToPlaylist(settings['merge_playlist'], track.uri, index + playlist[1].index(track)).raise_for_status()
 			except requests.exceptions.HTTPError as status:
-				sys.stderr.write(f'=== {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ===\n')
-				sys.stderr.write(f'An error occured while adding {track.title} by {track.artist} from {playlist[0]} to merged playlist!!\n')
-				sys.stderr.write(f'Server response: {status}\n')
+				sys.stderr.write(
+					f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Error while adding {track.title} by {track.artist} from {playlist[0]} to merged playlist - Server response: {status}\n')
 				continue
 			mergedPlaylist.insert(index + playlist[1].index(track), track)
-			print(f'Added {track.title} by {track.artist} from {playlist[0]} to merged playlist')
+			print(
+				f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Added {track.title} by {track.artist} from {playlist[0]} to merged playlist')
 		if mergedPlaylist.index(track) != index + playlist[1].index(track):
 			try:
 				reorderPlaylist(settings['merge_playlist'], mergedPlaylist.index(track), index + playlist[1].index(track)).raise_for_status()
 			except requests.exceptions.HTTPError as status:
-				sys.stderr.write(f'=== {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} ===\n')
-				sys.stderr.write(f'An error occured while moving {track.title} by {track.artist} from position {mergedPlaylist.index(track)} to {index + playlist[1].index(track)}!!\n')
-				sys.stderr.write(f'Server response: {status}\n')
+				sys.stderr.write(
+					f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Error while moving {track.title} by {track.artist} from position {mergedPlaylist.index(track)} to {index + playlist[1].index(track)} - Server response: {status}\n')
 				continue
 			oldIndex = mergedPlaylist.index(track)
 			mergedPlaylist.remove(track)
 			mergedPlaylist.insert(index + playlist[1].index(track), track)
-			print(f'Moved {track.title} by {track.artist} from position {oldIndex} to {mergedPlaylist.index(track)}')
+			print(f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Moved {track.title} by {track.artist} from position {oldIndex} to {mergedPlaylist.index(track)}')
 	index += len(playlist[1])
