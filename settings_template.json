@@ -1,0 +1,11 @@
+{
+  "authorization_token": "basic_authorization_token",
+  "refresh_token": "bearer_refresh_token",
+  "playlists": [
+    {
+      "name": "playlist_name",
+      "id": "playlist_id"
+    }
+  ],
+  "merge_playlist": "merge_playlist_id"
+}
