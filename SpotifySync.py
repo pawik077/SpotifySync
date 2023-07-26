@@ -43,7 +43,12 @@ def main():
 					continue
 				mergedPlaylist.insert(index + playlist[1].index(track), track)
 				print(
-					f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Added {track.title} by {track.artist} from {playlist[0]} to merged playlist')
+					f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Added {track.title} by {track.artist} from {playlist[0]} to merged playlist')	
+		index += len(playlist[1])
+		
+	index = 0
+	for playlist in playlists:
+		for track in playlist[1]:
 			if mergedPlaylist.index(track) != index + playlist[1].index(track):
 				try:
 					reorderPlaylist(settings['merge_playlist'], mergedPlaylist.index(track), index + playlist[1].index(track), authKey).raise_for_status()
@@ -56,6 +61,6 @@ def main():
 				mergedPlaylist.insert(index + playlist[1].index(track), track)
 				print(f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Moved {track.title} by {track.artist} from position {oldIndex} to {mergedPlaylist.index(track)}')
 		index += len(playlist[1])
-
+			
 if __name__ == '__main__':
 	main()
