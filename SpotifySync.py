@@ -8,7 +8,7 @@ def main():
 		sys.stderr.write(f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Error while reading settings file - settings.json file not found\n')
 		sys.exit(-2)
 		
-	authKey = 'Bearer ' + authorize()
+	authKey = 'Bearer ' + refresh()
 
 	playlists = []
 

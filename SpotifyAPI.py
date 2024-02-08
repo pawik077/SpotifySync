@@ -13,7 +13,7 @@ class Track:
 	def __ne__(self, o: object) -> bool:
 		return self.uri != o.uri
 
-def authorize() -> str:
+def refresh() -> str:
 	url = "https://accounts.spotify.com/api/token"
 	payload = 'grant_type=refresh_token&refresh_token=' + settings['refresh_token']
 	headers = {
