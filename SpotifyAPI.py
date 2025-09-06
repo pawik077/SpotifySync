@@ -3,6 +3,8 @@ import requests
 import sys
 import datetime
 
+BASE_URL = "https://api.spotify.com/v1"
+
 
 class Track:
     def __init__(self, title: str = "", artist: str = "", uri: str = "") -> None:
@@ -40,7 +42,7 @@ def refresh(authorization_token: str, refresh_token: str) -> str:
 
 
 def getCurrentUser(authkey: str) -> str:
-    url = "https://api.spotify.com/v1/me"
+    url = f"{BASE_URL}/me"
     headers = {"Authorization": authkey}
     try:
         response = requests.get(url, headers=headers)
@@ -55,7 +57,7 @@ def getCurrentUser(authkey: str) -> str:
 
 def getPlaylist(playlistId: str, authKey: str) -> list[Track]:
     playlist = []
-    url = "https://api.spotify.com/v1/playlists/" + playlistId + "/tracks"
+    url = f"{BASE_URL}/playlists/" + playlistId + "/tracks"
     headers = {"Authorization": authKey}
     while url is not None:
         response = requests.get(url, headers=headers)
@@ -83,7 +85,7 @@ def addToPlaylist(
     playlistId: str, uri: str, pos: int, authKey: str
 ) -> requests.models.Response:
     url = (
-        "https://api.spotify.com/v1/playlists/"
+        f"{BASE_URL}/playlists/"
         + playlistId
         + "/tracks?uris="
         + uri
@@ -98,7 +100,7 @@ def addToPlaylist(
 def removeFromPlaylist(
     playlistId: str, uri: str, authKey: str
 ) -> requests.models.Response:
-    url = "https://api.spotify.com/v1/playlists/" + playlistId + "/tracks"
+    url = f"{BASE_URL}/playlists/" + playlistId + "/tracks"
     headers = {"Authorization": authKey}
     payload = (
         '{\
@@ -118,7 +120,7 @@ def removeFromPlaylist(
 def reorderPlaylist(
     playlistId: str, initPos: int, endPos: int, authKey: str
 ) -> requests.models.Response:
-    url = "https://api.spotify.com/v1/playlists/" + playlistId + "/tracks"
+    url = f"{BASE_URL}/playlists/" + playlistId + "/tracks"
     headers = {"Authorization": authKey, "Content-Type": "application/json"}
     payload = (
         '{\
