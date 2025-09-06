@@ -39,6 +39,20 @@ def refresh(authorization_token: str, refresh_token: str) -> str:
     return json.loads(response.text)["access_token"]
 
 
+def getCurrentUser(authkey: str) -> str:
+    url = "https://api.spotify.com/v1/me"
+    headers = {"Authorization": authkey}
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as status:
+        sys.stderr.write(
+            f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Error while getting current user - Server response: {status}\n'
+        )
+        sys.exit(-2)
+    return json.loads(response.text)  # ["id"]
+
+
 def getPlaylist(playlistId: str, authKey: str) -> list[Track]:
     playlist = []
     url = "https://api.spotify.com/v1/playlists/" + playlistId + "/tracks"
