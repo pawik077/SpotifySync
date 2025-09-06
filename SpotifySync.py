@@ -21,7 +21,9 @@ def main():
         )
         sys.exit(-2)
 
-    authKey = "Bearer " + refresh()
+    authKey = "Bearer " + refresh(
+        settings["authorization_token"], settings["refresh_token"]
+    )
 
     playlists = []
 

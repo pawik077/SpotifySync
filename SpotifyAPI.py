@@ -16,11 +16,11 @@ class Track:
         return NotImplemented
 
 
-def refresh() -> str:
+def refresh(authorization_token: str, refresh_token: str) -> str:
     url = "https://accounts.spotify.com/api/token"
-    payload = "grant_type=refresh_token&refresh_token=" + settings["refresh_token"]
+    payload = "grant_type=refresh_token&refresh_token=" + refresh_token
     headers = {
-        "Authorization": "Basic " + settings["authorization_token"],
+        "Authorization": "Basic " + authorization_token,
         "Content-Type": "application/x-www-form-urlencoded",
     }
     try:
@@ -118,13 +118,3 @@ def reorderPlaylist(
     )
     response = requests.put(url, headers=headers, data=payload)
     return response
-
-
-try:
-    with open("settings.json", "r") as s:
-        settings = json.load(s)
-except FileNotFoundError:
-    sys.stderr.write(
-        f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Error while reading settings file - settings.json file not found\n'
-    )
-    sys.exit(-2)
