@@ -1,7 +1,7 @@
 import json
 import requests
-import sys
-import datetime
+
+from utils import logError
 
 BASE_URL = "https://api.spotify.com/v1"
 
@@ -29,15 +29,11 @@ def refresh(authorization_token: str, refresh_token: str) -> str:
         response = requests.post(url, headers=headers, data=payload)
         response.raise_for_status()
     except requests.exceptions.ConnectionError:
-        sys.stderr.write(
-            f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Error while getting authorization key - Server connection error\n'
-        )
-        sys.exit(-10)
+        logError("Error while getting authorization key - Server connection error", -10)
     except requests.exceptions.HTTPError as status:
-        sys.stderr.write(
-            f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Error while getting authorization key - Server response: {status}\n'
+        logError(
+            f"Error while getting authorization key - Server response: {status}", -1
         )
-        sys.exit(-1)
     return json.loads(response.text)["access_token"]
 
 
@@ -48,10 +44,7 @@ def getCurrentUser(authkey: str) -> str:
         response = requests.get(url, headers=headers)
         response.raise_for_status()
     except requests.exceptions.HTTPError as status:
-        sys.stderr.write(
-            f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Error while getting current user - Server response: {status}\n'
-        )
-        sys.exit(-2)
+        logError(f"Error while getting current user - Server response: {status}", -2)
     return json.loads(response.text)  # ["id"]
 
 
@@ -64,10 +57,10 @@ def getPlaylist(playlistId: str, authKey: str) -> list[Track]:
         try:
             response.raise_for_status()
         except requests.exceptions.HTTPError as status:
-            sys.stderr.write(
-                f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Error while downloading playlist contents - Server response: {status}\n'
+            logError(
+                f"Error while downloading playlist contents - Server response: {status}",
+                -2,
             )
-            sys.exit(-2)
         for item in json.loads(response.text)["items"]:
             track = Track(item["track"]["name"], "", item["track"]["uri"])
             artists = len(item["track"]["artists"])
