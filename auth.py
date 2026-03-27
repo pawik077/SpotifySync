@@ -10,8 +10,6 @@ import string
 import time
 import json
 
-response = {}
-
 
 def challenge():
     verifier = "".join(
@@ -22,16 +20,15 @@ def challenge():
     return verifier, code_challenge
 
 
-def callback(environ, start_response):
-    start_response("200 OK", [("Content-Type", "text/html")])
-    global response
-    response = parse_qs(environ["QUERY_STRING"])
-    return [b"Authorization complete. You can close this window."]
-
-
 # def authorize(settings: dict):
 def authorize():
-    global response
+    response = {}
+
+    def callback(environ, start_response):
+        start_response("200 OK", [("Content-Type", "text/html")])
+        response.update(parse_qs(environ["QUERY_STRING"]))
+        return [b"Authorization complete. You can close this window."]
+
     client_id = "c89ab668d1b04069b03b793c940bd5b4"
     state = "".join(
         secrets.choice(string.ascii_lowercase + string.digits) for _ in range(16)
