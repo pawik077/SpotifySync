@@ -29,7 +29,10 @@ def authorize():
         start_response("200 OK", [("Content-Type", "text/html")])
         response.update(parse_qs(environ["QUERY_STRING"]))
         callback_done.set()
-        return [b"Authorization complete. You can close this window."]
+        return [b"""<html><body>
+            <p>Authorization complete. You can close this window.</p>
+            <script>window.close();</script>
+        </body></html>"""]
 
     client_id = "c89ab668d1b04069b03b793c940bd5b4"
     state = "".join(
