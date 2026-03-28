@@ -1,7 +1,7 @@
 import webbrowser
 from wsgiref import simple_server
 from urllib.parse import parse_qs
-from threading import Thread
+import threading
 import secrets
 import hashlib
 import base64
@@ -23,10 +23,12 @@ def challenge():
 # def authorize(settings: dict):
 def authorize():
     response = {}
+    callback_done = threading.Event()
 
     def callback(environ, start_response):
         start_response("200 OK", [("Content-Type", "text/html")])
         response.update(parse_qs(environ["QUERY_STRING"]))
+        callback_done.set()
         return [b"Authorization complete. You can close this window."]
 
     client_id = "c89ab668d1b04069b03b793c940bd5b4"
@@ -41,18 +43,14 @@ def authorize():
     server_ip = redirect_uri.split("//")[1].split(":")[0]
     server_port = int(redirect_uri.split("//")[1].split(":")[1].split("/")[0])
     server = simple_server.make_server(server_ip, server_port, callback)
-    server_thread = Thread(target=server.handle_request)
+    timeout = 240  # 4 minute timeout period
+    server.timeout = timeout
+    server_thread = threading.Thread(target=server.handle_request)
     server_thread.start()
-    timeout = time.time() + 60
-    while True:
-        if time.time() > timeout:
-            server.shutdown()
-            server_thread.join()
-            raise Exception("Connection timeout")
-        if response:
-            server_thread.join()
-            break
-        time.sleep(0.1)
+    if not callback_done.wait(timeout=timeout):
+        server_thread.join()
+        raise Exception("Connection timeout")
+    server_thread.join()
     if response["state"][0] != state:
         raise Exception("Error: State mismatch")
     if "error" in response:
