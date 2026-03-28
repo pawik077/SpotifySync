@@ -9,6 +9,7 @@ import requests
 import string
 import time
 import json
+from queue import Queue, Empty
 
 
 def challenge():
@@ -22,13 +23,11 @@ def challenge():
 
 # def authorize(settings: dict):
 def authorize():
-    response = {}
-    callback_done = threading.Event()
+    callback_queue = Queue()
 
     def callback(environ, start_response):
         start_response("200 OK", [("Content-Type", "text/html")])
-        response.update(parse_qs(environ["QUERY_STRING"]))
-        callback_done.set()
+        callback_queue.put(parse_qs(environ["QUERY_STRING"]))
         return [b"""<html><body>
             <p>Authorization complete. You can close this window.</p>
             <script>window.close();</script>
@@ -50,15 +49,17 @@ def authorize():
     server.timeout = timeout
     server_thread = threading.Thread(target=server.handle_request)
     server_thread.start()
-    if not callback_done.wait(timeout=timeout):
+    try:
+        callback_response = callback_queue.get(timeout=timeout)
+    except Empty:
         server_thread.join()
         raise Exception("Connection timeout")
     server_thread.join()
-    if response["state"][0] != state:
+    if callback_response["state"][0] != state:
         raise Exception("Error: State mismatch")
-    if "error" in response:
-        raise Exception("Error: " + response["error"][0])
-    code = response["code"][0]
+    if "error" in callback_response:
+        raise Exception("Error: " + callback_response["error"][0])
+    code = callback_response["code"][0]
     url = "https://accounts.spotify.com/api/token"
     payload = {
         "client_id": client_id,
