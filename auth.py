@@ -1,13 +1,12 @@
 import webbrowser
 from wsgiref import simple_server
-from urllib.parse import parse_qs
+import urllib.parse
 import threading
 import secrets
 import hashlib
 import base64
 import requests
 import string
-import time
 import json
 from queue import Queue, Empty
 
@@ -26,8 +25,11 @@ def authorize():
     callback_queue = Queue()
 
     def callback(environ, start_response):
+        if environ.get("PATH_INFO") != "/callback":
+            start_response("404 Not Found", [])
+            return [b""]
         start_response("200 OK", [("Content-Type", "text/html")])
-        callback_queue.put(parse_qs(environ["QUERY_STRING"]))
+        callback_queue.put(urllib.parse.parse_qs(environ["QUERY_STRING"]))
         return [b"""<html><body>
             <p>Authorization complete. You can close this window.</p>
             <script>window.close();</script>
@@ -39,27 +41,35 @@ def authorize():
     )
     verifier, code_challenge = challenge()
     scopes = ["playlist-modify-public", "playlist-modify-private"]
+    scope_str = "%20".join(scopes)
     redirect_uri = "http://127.0.0.1:8888/callback"
-    url = f"https://accounts.spotify.com/authorize?client_id={client_id}&response_type=code&code_challenge_method=S256&code_challenge={code_challenge}&redirect_uri={redirect_uri}&state={state}&scope={"%20".join(scopes)}"
-    webbrowser.open(url)
-    server_ip = redirect_uri.split("//")[1].split(":")[0]
-    server_port = int(redirect_uri.split("//")[1].split(":")[1].split("/")[0])
+    url = f"https://accounts.spotify.com/authorize?client_id={client_id}&response_type=code&code_challenge_method=S256&code_challenge={code_challenge}&redirect_uri={urllib.parse.quote(redirect_uri, safe='')}&state={state}&scope={scope_str}"
+    redirect_uri_parsed = urllib.parse.urlparse(redirect_uri)
+    server_ip = redirect_uri_parsed.hostname
+    server_port = redirect_uri_parsed.port
+    if server_port is None:
+        server_port = 80
+    assert server_ip is not None
     server = simple_server.make_server(server_ip, server_port, callback)
     timeout = 240  # 4 minute timeout period
     server.timeout = timeout
     server_thread = threading.Thread(target=server.handle_request)
     server_thread.start()
+    webbrowser.open(url)
     try:
         callback_response = callback_queue.get(timeout=timeout)
     except Empty:
         server_thread.join()
         raise Exception("Connection timeout")
     server_thread.join()
-    if callback_response["state"][0] != state:
-        raise Exception("Error: State mismatch")
-    if "error" in callback_response:
-        raise Exception("Error: " + callback_response["error"][0])
-    code = callback_response["code"][0]
+    try:
+        if callback_response["state"][0] != state:
+            raise Exception("Error: State mismatch")
+        if "error" in callback_response:
+            raise Exception("Error: " + callback_response["error"][0])
+        code = callback_response["code"][0]
+    except KeyError:
+        raise KeyError("Error: Malformed request response")
     url = "https://accounts.spotify.com/api/token"
     payload = {
         "client_id": client_id,
