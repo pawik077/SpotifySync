@@ -35,10 +35,12 @@ def authorize():
     )
     verifier, code_challenge = challenge()
     scopes = ["playlist-modify-public", "playlist-modify-private"]
-    url = f"https://accounts.spotify.com/authorize?client_id={client_id}&response_type=code&code_challenge_method=S256&code_challenge={code_challenge}&redirect_uri=http://127.0.0.1:8888/callback&state={state}&scope={"%20".join(scopes)}"  # &scope=playlist-modify-public%20playlist-modify-private'
+    redirect_uri = "http://127.0.0.1:8888/callback"
+    url = f"https://accounts.spotify.com/authorize?client_id={client_id}&response_type=code&code_challenge_method=S256&code_challenge={code_challenge}&redirect_uri={redirect_uri}&state={state}&scope={"%20".join(scopes)}"
     webbrowser.open(url)
-    server = simple_server.make_server("127.0.0.1", 8888, callback)
-    # server_thread = Thread(target=server.serve_forever)
+    server_ip = redirect_uri.split("//")[1].split(":")[0]
+    server_port = int(redirect_uri.split("//")[1].split(":")[1].split("/")[0])
+    server = simple_server.make_server(server_ip, server_port, callback)
     server_thread = Thread(target=server.handle_request)
     server_thread.start()
     timeout = time.time() + 60
@@ -61,7 +63,7 @@ def authorize():
         "client_id": client_id,
         "grant_type": "authorization_code",
         "code": code,
-        "redirect_uri": "http://127.0.0.1:8888/callback",
+        "redirect_uri": redirect_uri,
         "code_verifier": verifier,
     }
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
