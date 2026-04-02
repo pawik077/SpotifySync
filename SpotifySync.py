@@ -1,6 +1,5 @@
 import sys
 import json
-import datetime
 import requests
 from SpotifyAPI import (
     refresh,
@@ -9,6 +8,7 @@ from SpotifyAPI import (
     removeFromPlaylist,
     reorderPlaylist,
 )
+from utils import logError, log
 
 
 def main():
@@ -16,9 +16,7 @@ def main():
         with open("settings.json", "r") as s:
             settings = json.load(s)
     except FileNotFoundError:
-        sys.stderr.write(
-            f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Error while reading settings file - settings.json file not found\n'
-        )
+        logError("Error while reading settings file - settings.json file not found")
         sys.exit(-2)
 
     authKey = "Bearer " + refresh(
@@ -42,14 +40,12 @@ def main():
                     settings["merge_playlist"], track.uri, authKey
                 ).raise_for_status()
             except requests.exceptions.HTTPError as status:
-                sys.stderr.write(
-                    f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Error while removing {track.title} by {track.artist} from merged playlist - Server response: {status}\n'
+                logError(
+                    f"Error while removing {track.title} by {track.artist} from merged playlist - Server response: {status}",
                 )
                 continue
             mergedPlaylist.remove(track)
-            print(
-                f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Removed {track.title} by {track.artist} from merged playlist'
-            )
+            log(f"Removed {track.title} by {track.artist} from merged playlist")
 
     index = 0
     for playlist in playlists:
@@ -63,13 +59,13 @@ def main():
                         authKey,
                     ).raise_for_status()
                 except requests.exceptions.HTTPError as status:
-                    sys.stderr.write(
-                        f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Error while adding {track.title} by {track.artist} from {playlist[0]} to merged playlist - Server response: {status}\n'
+                    logError(
+                        f"Error while adding {track.title} by {track.artist} from {playlist[0]} to merged playlist - Server response: {status}"
                     )
                     continue
                 mergedPlaylist.insert(index + playlist[1].index(track), track)
-                print(
-                    f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Added {track.title} by {track.artist} from {playlist[0]} to merged playlist'
+                log(
+                    f"Added {track.title} by {track.artist} from {playlist[0]} to merged playlist"
                 )
         index += len(playlist[1])
 
@@ -85,19 +81,18 @@ def main():
                         authKey,
                     ).raise_for_status()
                 except requests.exceptions.HTTPError as status:
-                    sys.stderr.write(
-                        f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Error while moving {track.title} by {track.artist} from position {mergedPlaylist.index(track)} to {index + playlist[1].index(track)} - Server response: {status}\n'
+                    logError(
+                        f"Error while moving {track.title} by {track.artist} from position {mergedPlaylist.index(track)} to {index + playlist[1].index(track)} - Server response: {status}"
                     )
                     continue
                 oldIndex = mergedPlaylist.index(track)
                 mergedPlaylist.remove(track)
                 mergedPlaylist.insert(index + playlist[1].index(track), track)
-                print(
-                    f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: Moved {track.title} by {track.artist} from position {oldIndex} to {mergedPlaylist.index(track)}'
+                log(
+                    f"Moved {track.title} by {track.artist} from position {oldIndex} to {mergedPlaylist.index(track)}"
                 )
         index += len(playlist[1])
 
 
 if __name__ == "__main__":
     main()
-

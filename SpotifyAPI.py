@@ -1,5 +1,6 @@
 import json
 import requests
+import sys
 
 from utils import logError
 
@@ -29,11 +30,11 @@ def refresh(authorization_token: str, refresh_token: str) -> str:
         response = requests.post(url, headers=headers, data=payload)
         response.raise_for_status()
     except requests.exceptions.ConnectionError:
-        logError("Error while getting authorization key - Server connection error", -10)
+        logError("Error while getting authorization key - Server connection error")
+        sys.exit(-10)
     except requests.exceptions.HTTPError as status:
-        logError(
-            f"Error while getting authorization key - Server response: {status}", -1
-        )
+        logError(f"Error while getting authorization key - Server response: {status}")
+        sys.exit(-1)
     return json.loads(response.text)["access_token"]
 
 
@@ -44,7 +45,8 @@ def getCurrentUser(authkey: str) -> str:
         response = requests.get(url, headers=headers)
         response.raise_for_status()
     except requests.exceptions.HTTPError as status:
-        logError(f"Error while getting current user - Server response: {status}", -2)
+        logError(f"Error while getting current user - Server response: {status}")
+        sys.exit(-2)
     return json.loads(response.text)  # ["id"]
 
 
@@ -58,9 +60,9 @@ def getPlaylist(playlistId: str, authKey: str) -> list[Track]:
             response.raise_for_status()
         except requests.exceptions.HTTPError as status:
             logError(
-                f"Error while downloading playlist contents - Server response: {status}",
-                -2,
+                f"Error while downloading playlist contents - Server response: {status}"
             )
+            sys.exit(-2)
         for item in json.loads(response.text)["items"]:
             track = Track(item["track"]["name"], "", item["track"]["uri"])
             artists = len(item["track"]["artists"])
@@ -95,17 +97,13 @@ def removeFromPlaylist(
 ) -> requests.models.Response:
     url = f"{BASE_URL}/playlists/" + playlistId + "/tracks"
     headers = {"Authorization": authKey}
-    payload = (
-        '{\
+    payload = '{\
         "tracks": [\
             {\
-                "uri": "'
-        + uri
-        + '"\
+                "uri": "' + uri + '"\
             }\
         ]\
     }'
-    )
     response = requests.delete(url, headers=headers, data=payload)
     return response
 
@@ -115,15 +113,9 @@ def reorderPlaylist(
 ) -> requests.models.Response:
     url = f"{BASE_URL}/playlists/" + playlistId + "/tracks"
     headers = {"Authorization": authKey, "Content-Type": "application/json"}
-    payload = (
-        '{\
-        "range_start": '
-        + str(initPos)
-        + ',\
-        "insert_before": '
-        + str(endPos)
-        + "\
+    payload = '{\
+        "range_start": ' + str(initPos) + ',\
+        "insert_before": ' + str(endPos) + "\
     }"
-    )
     response = requests.put(url, headers=headers, data=payload)
     return response

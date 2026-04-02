@@ -1,10 +1,14 @@
 import sys
 import datetime
-from typing import NoReturn
 
 
-def logError(message: str, exit_code: int) -> NoReturn:
+def logError(message: str):
     sys.stderr.write(
         f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: {message}\n'
     )
-    sys.exit(exit_code)
+
+
+def log(message: str):
+    sys.stdout.write(
+        f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: {message}\n'
+    )
