@@ -19,11 +19,12 @@ class Track:
         return NotImplemented
 
 
-def refresh(authorization_token: str, refresh_token: str) -> str:
+def refresh(refresh_token: str, client_id: str) -> tuple[str, str, int]:
     url = "https://accounts.spotify.com/api/token"
-    payload = "grant_type=refresh_token&refresh_token=" + refresh_token
+    payload = (
+        f"grant_type=refresh_token&refresh_token={refresh_token}&client_id={client_id}"
+    )
     headers = {
-        "Authorization": "Basic " + authorization_token,
         "Content-Type": "application/x-www-form-urlencoded",
     }
     try:
@@ -35,7 +36,8 @@ def refresh(authorization_token: str, refresh_token: str) -> str:
     except requests.exceptions.HTTPError as status:
         logError(f"Error while getting authorization key - Server response: {status}")
         sys.exit(-1)
-    return json.loads(response.text)["access_token"]
+    data = response.json()
+    return data["access_token"], data["refresh_token"], data["expires_in"]
 
 
 def getCurrentUser(authkey: str) -> str:

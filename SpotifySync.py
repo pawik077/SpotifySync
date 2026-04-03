@@ -1,6 +1,7 @@
 import sys
 import json
 import requests
+import time
 from SpotifyAPI import (
     refresh,
     getPlaylist,
@@ -18,10 +19,34 @@ def main():
     except FileNotFoundError:
         logError("Error while reading settings file - settings.json file not found")
         sys.exit(-2)
+    except json.decoder.JSONDecodeError:
+        logError("Error while reading settings file - JSON decoding failed")
+        sys.exit(-3)
 
-    authKey = "Bearer " + refresh(
-        settings["authorization_token"], settings["refresh_token"]
-    )
+    if not settings.get("merge_playlist"):
+        logError("Configuration error - merge playlist not set")
+        sys.exit(-4)
+    if not settings.get("playlists"):
+        logError("Configuration error - source playlists not set")
+        sys.exit(-5)
+
+    if int(time.time()) > settings.get("expires_at", 0) - 30 or not settings.get(
+        "access_token"
+    ):
+        if not settings.get("refresh_token"):
+            logError("Authentication error - missing refresh token")
+            sys.exit(-1)
+        if not settings.get("client_id"):
+            logError("Authentication error - missing client id")
+            sys.exit(-1)
+        settings["access_token"], settings["refresh_token"], expires_in = refresh(
+            settings["refresh_token"], settings["client_id"]
+        )
+        settings["expires_at"] = int(time.time()) + expires_in
+        with open("settings.json", "w") as s:
+            json.dump(settings, s, indent=2)
+
+    authKey = "Bearer " + settings["access_token"]
 
     playlists = []
 
