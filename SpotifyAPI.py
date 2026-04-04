@@ -1,4 +1,3 @@
-import json
 import requests
 
 BASE_URL = "https://api.spotify.com/v1"
@@ -18,9 +17,11 @@ class Track:
 
 def refresh(refresh_token: str, client_id: str) -> tuple[str, str, int]:
     url = "https://accounts.spotify.com/api/token"
-    payload = (
-        f"grant_type=refresh_token&refresh_token={refresh_token}&client_id={client_id}"
-    )
+    payload = {
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+        "client_id": client_id,
+    }
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
     }
@@ -30,22 +31,23 @@ def refresh(refresh_token: str, client_id: str) -> tuple[str, str, int]:
     return data["access_token"], data["refresh_token"], data["expires_in"]
 
 
-def getCurrentUser(authkey: str) -> str:
+def getCurrentUser(authkey: str) -> dict:
     url = f"{BASE_URL}/me"
     headers = {"Authorization": authkey}
     response = requests.get(url, headers=headers)
     response.raise_for_status()
-    return json.loads(response.text)  # ["id"]
+    return response.json()  # ["id"]
 
 
 def getPlaylist(playlistId: str, authKey: str) -> list[Track]:
     playlist = []
-    url = f"{BASE_URL}/playlists/" + playlistId + "/tracks"
+    url = f"{BASE_URL}/playlists/{playlistId}/tracks"
     headers = {"Authorization": authKey}
     while url is not None:
         response = requests.get(url, headers=headers)
         response.raise_for_status()
-        for item in json.loads(response.text)["items"]:
+        data = response.json()
+        for item in data["items"]:
             track = Track(item["track"]["name"], "", item["track"]["uri"])
             artists = len(item["track"]["artists"])
             for artist in item["track"]["artists"]:
@@ -54,21 +56,14 @@ def getPlaylist(playlistId: str, authKey: str) -> list[Track]:
                 if artists != 0:
                     track.artist += ", "
             playlist.append(track)
-        url = json.loads(response.text)["next"]
+        url = data["next"]
     return playlist
 
 
 def addToPlaylist(
     playlistId: str, uri: str, pos: int, authKey: str
 ) -> requests.models.Response:
-    url = (
-        f"{BASE_URL}/playlists/"
-        + playlistId
-        + "/tracks?uris="
-        + uri
-        + "&position="
-        + str(pos)
-    )
+    url = f"{BASE_URL}/playlists/{playlistId}/tracks?uris={uri}&position={str(pos)}"
     headers = {"Authorization": authKey}
     response = requests.post(url, headers=headers)
     response.raise_for_status()
@@ -78,7 +73,7 @@ def addToPlaylist(
 def removeFromPlaylist(
     playlistId: str, uri: str, authKey: str
 ) -> requests.models.Response:
-    url = f"{BASE_URL}/playlists/" + playlistId + "/tracks"
+    url = f"{BASE_URL}/playlists/{playlistId}/tracks"
     headers = {"Authorization": authKey}
     payload = '{\
         "tracks": [\
@@ -95,7 +90,7 @@ def removeFromPlaylist(
 def reorderPlaylist(
     playlistId: str, initPos: int, endPos: int, authKey: str
 ) -> requests.models.Response:
-    url = f"{BASE_URL}/playlists/" + playlistId + "/tracks"
+    url = f"{BASE_URL}/playlists/{playlistId}/tracks"
     headers = {"Authorization": authKey, "Content-Type": "application/json"}
     payload = '{\
         "range_start": ' + str(initPos) + ',\
