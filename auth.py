@@ -38,7 +38,11 @@ def authorize(client_id: str):
         secrets.choice(string.ascii_lowercase + string.digits) for _ in range(16)
     )
     verifier, code_challenge = challenge()
-    scopes = ["playlist-modify-public", "playlist-modify-private"]
+    scopes = [
+        "playlist-modify-public",
+        "playlist-modify-private",
+        "playlist-read-private",
+    ]
     scope_str = "%20".join(scopes)
     redirect_uri = "http://127.0.0.1:8888/callback"
     url = f"https://accounts.spotify.com/authorize?client_id={client_id}&response_type=code&code_challenge_method=S256&code_challenge={code_challenge}&redirect_uri={urllib.parse.quote(redirect_uri, safe='')}&state={state}&scope={scope_str}"
