@@ -41,7 +41,7 @@ def getCurrentUser(authkey: str) -> dict:
 
 def getPlaylist(playlistId: str, authKey: str) -> list[Track]:
     playlist = []
-    url = f"{BASE_URL}/playlists/{playlistId}/tracks"
+    url = f"{BASE_URL}/playlists/{playlistId}/items"
     headers = {"Authorization": authKey}
     while url is not None:
         response = requests.get(url, headers=headers)
@@ -63,9 +63,10 @@ def getPlaylist(playlistId: str, authKey: str) -> list[Track]:
 def addToPlaylist(
     playlistId: str, uri: str, pos: int, authKey: str
 ) -> requests.models.Response:
-    url = f"{BASE_URL}/playlists/{playlistId}/tracks?uris={uri}&position={str(pos)}"
-    headers = {"Authorization": authKey}
-    response = requests.post(url, headers=headers)
+    url = f"{BASE_URL}/playlists/{playlistId}/items"
+    headers = {"Authorization": authKey, "Content-Type": "application/json"}
+    payload = {"uris": [uri], "position": pos}
+    response = requests.post(url, headers=headers, json=payload)
     response.raise_for_status()
     return response
 
@@ -73,16 +74,10 @@ def addToPlaylist(
 def removeFromPlaylist(
     playlistId: str, uri: str, authKey: str
 ) -> requests.models.Response:
-    url = f"{BASE_URL}/playlists/{playlistId}/tracks"
+    url = f"{BASE_URL}/playlists/{playlistId}/items"
     headers = {"Authorization": authKey}
-    payload = '{\
-        "tracks": [\
-            {\
-                "uri": "' + uri + '"\
-            }\
-        ]\
-    }'
-    response = requests.delete(url, headers=headers, data=payload)
+    payload = {"items": [{"uri": uri}]}
+    response = requests.delete(url, headers=headers, json=payload)
     response.raise_for_status()
     return response
 
@@ -90,12 +85,9 @@ def removeFromPlaylist(
 def reorderPlaylist(
     playlistId: str, initPos: int, endPos: int, authKey: str
 ) -> requests.models.Response:
-    url = f"{BASE_URL}/playlists/{playlistId}/tracks"
+    url = f"{BASE_URL}/playlists/{playlistId}/items"
     headers = {"Authorization": authKey, "Content-Type": "application/json"}
-    payload = '{\
-        "range_start": ' + str(initPos) + ',\
-        "insert_before": ' + str(endPos) + "\
-    }"
-    response = requests.put(url, headers=headers, data=payload)
+    payload = {"range_start": initPos, "insert_before": endPos}
+    response = requests.put(url, headers=headers, json=payload)
     response.raise_for_status()
     return response
