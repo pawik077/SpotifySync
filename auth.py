@@ -20,8 +20,7 @@ def challenge():
     return verifier, code_challenge
 
 
-# def authorize(settings: dict):
-def authorize():
+def authorize(client_id: str):
     callback_queue = Queue()
 
     def callback(environ, start_response):
@@ -35,7 +34,6 @@ def authorize():
             <script>window.close();</script>
         </body></html>"""]
 
-    client_id = "c89ab668d1b04069b03b793c940bd5b4"
     state = "".join(
         secrets.choice(string.ascii_lowercase + string.digits) for _ in range(16)
     )
@@ -91,10 +89,3 @@ def authorize():
     return json.loads(response.text)["access_token"]
     # return response['code'][0]
     # print(response['code'][0])
-
-
-if __name__ == "__main__":
-    # import json
-    # with open('settings.json', 'r') as f:
-    # settings = json.loads(f.read())
-    print(authorize())
