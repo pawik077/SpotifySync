@@ -1,8 +1,5 @@
 import json
 import requests
-import sys
-
-from utils import logError
 
 BASE_URL = "https://api.spotify.com/v1"
 
@@ -27,15 +24,8 @@ def refresh(refresh_token: str, client_id: str) -> tuple[str, str, int]:
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
     }
-    try:
-        response = requests.post(url, headers=headers, data=payload)
-        response.raise_for_status()
-    except requests.exceptions.ConnectionError:
-        logError("Error while getting authorization key - Server connection error")
-        sys.exit(-10)
-    except requests.exceptions.HTTPError as status:
-        logError(f"Error while getting authorization key - Server response: {status}")
-        sys.exit(-1)
+    response = requests.post(url, headers=headers, data=payload)
+    response.raise_for_status()
     data = response.json()
     return data["access_token"], data["refresh_token"], data["expires_in"]
 
@@ -43,12 +33,8 @@ def refresh(refresh_token: str, client_id: str) -> tuple[str, str, int]:
 def getCurrentUser(authkey: str) -> str:
     url = f"{BASE_URL}/me"
     headers = {"Authorization": authkey}
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-    except requests.exceptions.HTTPError as status:
-        logError(f"Error while getting current user - Server response: {status}")
-        sys.exit(-2)
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
     return json.loads(response.text)  # ["id"]
 
 
@@ -58,13 +44,7 @@ def getPlaylist(playlistId: str, authKey: str) -> list[Track]:
     headers = {"Authorization": authKey}
     while url is not None:
         response = requests.get(url, headers=headers)
-        try:
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as status:
-            logError(
-                f"Error while downloading playlist contents - Server response: {status}"
-            )
-            sys.exit(-2)
+        response.raise_for_status()
         for item in json.loads(response.text)["items"]:
             track = Track(item["track"]["name"], "", item["track"]["uri"])
             artists = len(item["track"]["artists"])
@@ -91,6 +71,7 @@ def addToPlaylist(
     )
     headers = {"Authorization": authKey}
     response = requests.post(url, headers=headers)
+    response.raise_for_status()
     return response
 
 
@@ -107,6 +88,7 @@ def removeFromPlaylist(
         ]\
     }'
     response = requests.delete(url, headers=headers, data=payload)
+    response.raise_for_status()
     return response
 
 
@@ -120,4 +102,5 @@ def reorderPlaylist(
         "insert_before": ' + str(endPos) + "\
     }"
     response = requests.put(url, headers=headers, data=payload)
+    response.raise_for_status()
     return response

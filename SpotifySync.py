@@ -39,9 +39,20 @@ def main():
         if not settings.get("client_id"):
             logError("Authentication error - missing client id")
             sys.exit(-1)
-        settings["access_token"], settings["refresh_token"], expires_in = refresh(
-            settings["refresh_token"], settings["client_id"]
-        )
+        try:
+            settings["access_token"], settings["refresh_token"], expires_in = refresh(
+                settings["refresh_token"], settings["client_id"]
+            )
+        except requests.exceptions.ConnectionError:
+            logError(
+                "Error while refreshing authorization token - Server connection error"
+            )
+            sys.exit(-10)
+        except requests.exceptions.HTTPError as status:
+            logError(
+                f"Error while refreshing authorization token - Server response: {status}"
+            )
+            sys.exit(-1)
         settings["expires_at"] = int(time.time()) + expires_in
         with open("settings.json", "w") as s:
             json.dump(settings, s, indent=2)
@@ -50,9 +61,21 @@ def main():
 
     playlists = []
 
-    mergedPlaylist = getPlaylist(settings["merge_playlist"], authKey)
+    try:
+        mergedPlaylist = getPlaylist(settings["merge_playlist"], authKey)
+    except requests.exceptions.HTTPError as status:
+        logError(
+            f"Error while downloading merged playlist  contents - Server response: {status}"
+        )
+        sys.exit(-2)
     for playlist in settings["playlists"]:
-        playlists.append((playlist["name"], getPlaylist(playlist["id"], authKey)))
+        try:
+            playlists.append((playlist["name"], getPlaylist(playlist["id"], authKey)))
+        except requests.exceptions.HTTPError as status:
+            logError(
+                f"Error while downloading playlist {playlist['name']} contents - Server response: {status}"
+            )
+            sys.exit(-2)
 
     for track in mergedPlaylist:
         found = False
@@ -61,9 +84,7 @@ def main():
                 found = True
         if not found:
             try:
-                removeFromPlaylist(
-                    settings["merge_playlist"], track.uri, authKey
-                ).raise_for_status()
+                removeFromPlaylist(settings["merge_playlist"], track.uri, authKey)
             except requests.exceptions.HTTPError as status:
                 logError(
                     f"Error while removing {track.title} by {track.artist} from merged playlist - Server response: {status}",
@@ -82,7 +103,7 @@ def main():
                         track.uri,
                         index + playlist[1].index(track),
                         authKey,
-                    ).raise_for_status()
+                    )
                 except requests.exceptions.HTTPError as status:
                     logError(
                         f"Error while adding {track.title} by {track.artist} from {playlist[0]} to merged playlist - Server response: {status}"
@@ -104,7 +125,7 @@ def main():
                         mergedPlaylist.index(track),
                         index + playlist[1].index(track),
                         authKey,
-                    ).raise_for_status()
+                    )
                 except requests.exceptions.HTTPError as status:
                     logError(
                         f"Error while moving {track.title} by {track.artist} from position {mergedPlaylist.index(track)} to {index + playlist[1].index(track)} - Server response: {status}"
