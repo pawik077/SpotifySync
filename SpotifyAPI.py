@@ -4,11 +4,26 @@ from dataclasses import dataclass, field
 BASE_URL = "https://api.spotify.com/v1"
 
 
-# TODO: expand class with additional data
+@dataclass(eq=False)
+class Album:
+    title: str = ""
+    artist: str = ""
+    cover_url: str = ""
+    release_date: str = ""
+    total_tracks: int | None = None
+    uri: str = ""
+
+    def __eq__(self, o: object) -> bool:
+        if isinstance(o, Album):
+            return self.uri == o.uri
+        return NotImplemented
+
+
 @dataclass(eq=False)
 class Track:
     title: str = ""
     artist: str = ""
+    album: Album | None = None
     uri: str = ""
 
     def __eq__(self, o: object) -> bool:
@@ -128,7 +143,9 @@ def getPlaylistContents(playlistId: str, authKey: str) -> list[Track]:
     total = None
     url = f"{BASE_URL}/playlists/{playlistId}/items"
     headers = {"Authorization": authKey}
-    params = {"fields": "total,next,items(track(name,uri,artists(name)))"}
+    params = {
+        "fields": "total,next,items(track(name,uri,artists(name),album(images(url),name,release_date,total_tracks,uri,artists(name))))"
+    }
     while url is not None:
         response = requests.get(url, headers=headers, params=params)
         response.raise_for_status()
@@ -140,14 +157,39 @@ def getPlaylistContents(playlistId: str, authKey: str) -> list[Track]:
                 total -= 1
                 continue
             track = Track(
-                title=item["track"]["name"], artist="", uri=item["track"]["uri"]
+                title=item["track"].get("name", ""),
+                artist=(
+                    ", ".join([artist["name"] for artist in item["track"]["artists"]])
+                    if item["track"].get("artists")
+                    else ""
+                ),
+                album=(
+                    Album(
+                        title=item["track"]["album"].get("name", ""),
+                        artist=(
+                            ", ".join(
+                                [
+                                    artist["name"]
+                                    for artist in item["track"]["album"]["artists"]
+                                ]
+                            )
+                            if item["track"]["album"].get("artists")
+                            else ""
+                        ),
+                        cover_url=(
+                            item["track"]["album"]["images"][0]["url"]
+                            if item["track"]["album"].get("images")
+                            else ""
+                        ),
+                        release_date=item["track"]["album"].get("release_date", ""),
+                        total_tracks=item["track"]["album"].get("total_tracks", None),
+                        uri=item["track"]["album"]["uri"],
+                    )
+                    if item["track"].get("album")
+                    else None
+                ),
+                uri=item["track"].get("uri", ""),
             )
-            artists = len(item["track"]["artists"])
-            for artist in item["track"]["artists"]:
-                track.artist += artist["name"]
-                artists -= 1
-                if artists != 0:
-                    track.artist += ", "
             playlist.append(track)
         url = data["next"]
     if len(playlist) != total:
