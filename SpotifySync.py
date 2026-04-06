@@ -4,7 +4,7 @@ import requests
 import time
 from SpotifyAPI import (
     refresh,
-    getPlaylist,
+    getPlaylistContents,
     addToPlaylist,
     removeFromPlaylist,
     reorderPlaylist,
@@ -62,7 +62,7 @@ def main():
     playlists = []
 
     try:
-        mergedPlaylist = getPlaylist(settings["merge_playlist"], authKey)
+        mergedPlaylist = getPlaylistContents(settings["merge_playlist"], authKey)
     except requests.exceptions.HTTPError as status:
         logError(
             f"Error while downloading merged playlist  contents - Server response: {status}"
@@ -70,7 +70,9 @@ def main():
         sys.exit(-2)
     for playlist in settings["playlists"]:
         try:
-            playlists.append((playlist["name"], getPlaylist(playlist["id"], authKey)))
+            playlists.append(
+                (playlist["name"], getPlaylistContents(playlist["id"], authKey))
+            )
         except requests.exceptions.HTTPError as status:
             logError(
                 f"Error while downloading playlist {playlist['name']} contents - Server response: {status}"
