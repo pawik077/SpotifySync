@@ -7,7 +7,6 @@ import hashlib
 import base64
 import requests
 import string
-import json
 from queue import Queue, Empty
 
 
@@ -43,7 +42,7 @@ def authorize(client_id: str):
         "playlist-modify-private",
         "playlist-read-private",
     ]
-    scope_str = "%20".join(scopes)
+    scope_str = urllib.parse.quote(" ".join(scopes))
     redirect_uri = "http://127.0.0.1:8888/callback"
     url = f"https://accounts.spotify.com/authorize?client_id={client_id}&response_type=code&code_challenge_method=S256&code_challenge={code_challenge}&redirect_uri={urllib.parse.quote(redirect_uri, safe='')}&state={state}&scope={scope_str}"
     redirect_uri_parsed = urllib.parse.urlparse(redirect_uri)
@@ -62,13 +61,13 @@ def authorize(client_id: str):
         callback_response = callback_queue.get(timeout=timeout)
     except Empty:
         server_thread.join()
-        raise Exception("Connection timeout")
+        raise TimeoutError("Connection timeout")
     server_thread.join()
     try:
         if callback_response["state"][0] != state:
-            raise Exception("Error: State mismatch")
+            raise ValueError("Error: State mismatch")
         if "error" in callback_response:
-            raise Exception("Error: " + callback_response["error"][0])
+            raise ValueError("Error: " + callback_response["error"][0])
         code = callback_response["code"][0]
     except KeyError:
         raise KeyError("Error: Malformed request response")
@@ -85,11 +84,5 @@ def authorize(client_id: str):
         "https://accounts.spotify.com/api/token", data=payload, headers=headers
     )
     response.raise_for_status()
-    # settings['authorization_token'] = code
-    # settings['refresh_token'] = json.loads(response.text)['refresh_token']
-    # with open('settings.json', 'w') as f:
-    #     f.write(json.dumps(settings, indent=2))
-    return json.loads(response.text)
-    return json.loads(response.text)["access_token"]
-    # return response['code'][0]
-    # print(response['code'][0])
+    data = response.json()
+    return data["access_token"], data["refresh_token"], data["expires_in"]
