@@ -65,17 +65,17 @@ def getAuthKey(settings: dict):
     return "Bearer " + settings["access_token"]
 
 
-def getPlaylists(settings: dict, authKey: str):
+def getPlaylists(mergedPlaylistId: str, playlistIds: list[str], authKey: str):
     playlists = []
     try:
-        mergedPlaylist = getPlaylistMetadata(settings["merge_playlist"], authKey)
-        mergedPlaylist.tracks = getPlaylistContents(settings["merge_playlist"], authKey)
+        mergedPlaylist = getPlaylistMetadata(mergedPlaylistId, authKey)
+        mergedPlaylist.tracks = getPlaylistContents(mergedPlaylistId, authKey)
     except requests.exceptions.HTTPError as status:
         logger.error(
-            f"Error while downloading merged playlist {settings['merge_playlist']} contents - Server response: {status}"
+            f"Error while downloading merged playlist {mergedPlaylistId} contents - Server response: {status}"
         )
         sys.exit(-2)
-    for playlistId in settings["playlists"]:
+    for playlistId in playlistIds:
         try:
             playlist = getPlaylistMetadata(playlistId, authKey)
             playlist.tracks = getPlaylistContents(playlistId, authKey)
@@ -171,7 +171,9 @@ def main():
 
     authKey = getAuthKey(settings)
 
-    mergedPlaylist, playlists = getPlaylists(settings, authKey)
+    mergedPlaylist, playlists = getPlaylists(
+        settings["merge_playlist"], settings["playlists"], authKey
+    )
 
     sync(mergedPlaylist, playlists, authKey)
 
