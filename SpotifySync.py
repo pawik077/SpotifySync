@@ -4,6 +4,7 @@ import requests
 import time
 import logging
 from SpotifyAPI import (
+    Playlist,
     refresh,
     getPlaylistMetadata,
     getPlaylistContents,
@@ -13,10 +14,12 @@ from SpotifyAPI import (
 )
 from utils import setup_logger
 
+logger = logging.getLogger("SpotifySync")
 
-def main(logger: logging.Logger):
+
+def load_settings(filename: str = "settings.json"):
     try:
-        with open("settings.json", "r") as s:
+        with open(filename, "r") as s:
             settings = json.load(s)
     except FileNotFoundError:
         logger.error("Error while reading settings file - settings.json file not found")
@@ -24,14 +27,16 @@ def main(logger: logging.Logger):
     except json.decoder.JSONDecodeError:
         logger.error("Error while reading settings file - JSON decoding failed")
         sys.exit(-3)
+    settings["filename"] = filename
+    return settings
 
-    if not settings.get("merge_playlist"):
-        logger.error("Configuration error - merge playlist not set")
-        sys.exit(-4)
-    if not settings.get("playlists"):
-        logger.error("Configuration error - source playlists not set")
-        sys.exit(-5)
 
+def save_settings(settings, filename: str = "settings.json"):
+    with open(filename, "w") as s:
+        json.dump({i: settings[i] for i in settings if i != "filename"}, s, indent=2)
+
+
+def getAuthKey(settings: dict):
     if int(time.time()) > settings.get("expires_at", 0) - 30 or not settings.get(
         "access_token"
     ):
@@ -56,13 +61,12 @@ def main(logger: logging.Logger):
             )
             sys.exit(-1)
         settings["expires_at"] = int(time.time()) + expires_in
-        with open("settings.json", "w") as s:
-            json.dump(settings, s, indent=2)
+        save_settings(settings, settings["filename"])
+    return "Bearer " + settings["access_token"]
 
-    authKey = "Bearer " + settings["access_token"]
 
+def getPlaylists(settings: dict, authKey: str):
     playlists = []
-
     try:
         mergedPlaylist = getPlaylistMetadata(settings["merge_playlist"], authKey)
         mergedPlaylist.tracks = getPlaylistContents(settings["merge_playlist"], authKey)
@@ -81,7 +85,10 @@ def main(logger: logging.Logger):
                 f"Error while downloading playlist {playlistId} contents - Server response: {status}"
             )
             sys.exit(-2)
+    return mergedPlaylist, playlists
 
+
+def sync(mergedPlaylist: Playlist, playlists: list[Playlist], authKey: str):
     for track in mergedPlaylist.tracks:
         found = False
         for playlist in playlists:
@@ -153,6 +160,22 @@ def main(logger: logging.Logger):
         index += len(playlist.tracks)
 
 
+def main():
+    settings = load_settings()
+    if not settings.get("merge_playlist"):
+        logger.error("Configuration error - merge playlist not set")
+        sys.exit(-4)
+    if not settings.get("playlists"):
+        logger.error("Configuration error - source playlists not set")
+        sys.exit(-5)
+
+    authKey = getAuthKey(settings)
+
+    mergedPlaylist, playlists = getPlaylists(settings, authKey)
+
+    sync(mergedPlaylist, playlists, authKey)
+
+
 if __name__ == "__main__":
-    logger = setup_logger("sync.log")
-    main(logger)
+    setup_logger("sync.log")
+    main()
