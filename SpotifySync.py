@@ -2,8 +2,10 @@ import sys
 import json
 import requests
 import time
+import logging
 from SpotifyAPI import (
     refresh,
+    getPlaylistMetadata,
     getPlaylistContents,
     addToPlaylist,
     removeFromPlaylist,
@@ -12,7 +14,7 @@ from SpotifyAPI import (
 from utils import setup_logger
 
 
-def main():
+def main(logger: logging.Logger):
     try:
         with open("settings.json", "r") as s:
             settings = json.load(s)
@@ -62,86 +64,95 @@ def main():
     playlists = []
 
     try:
-        mergedPlaylist = getPlaylistContents(settings["merge_playlist"], authKey)
+        mergedPlaylist = getPlaylistMetadata(settings["merge_playlist"], authKey)
+        mergedPlaylist.tracks = getPlaylistContents(settings["merge_playlist"], authKey)
     except requests.exceptions.HTTPError as status:
         logger.error(
-            f"Error while downloading merged playlist contents - Server response: {status}"
+            f"Error while downloading merged playlist {settings['merge_playlist']} contents - Server response: {status}"
         )
         sys.exit(-2)
-    for playlist in settings["playlists"]:
+    for playlistId in settings["playlists"]:
         try:
-            playlists.append(
-                (playlist["name"], getPlaylistContents(playlist["id"], authKey))
-            )
+            playlist = getPlaylistMetadata(playlistId, authKey)
+            playlist.tracks = getPlaylistContents(playlistId, authKey)
+            playlists.append(playlist)
         except requests.exceptions.HTTPError as status:
             logger.error(
-                f"Error while downloading playlist {playlist['name']} contents - Server response: {status}"
+                f"Error while downloading playlist {playlistId} contents - Server response: {status}"
             )
             sys.exit(-2)
 
-    for track in mergedPlaylist:
+    for track in mergedPlaylist.tracks:
         found = False
         for playlist in playlists:
-            if track in playlist[1]:
+            if track in playlist.tracks:
                 found = True
         if not found:
             try:
-                removeFromPlaylist(settings["merge_playlist"], track.uri, authKey)
+                removeFromPlaylist(mergedPlaylist.id, track.uri, authKey)
             except requests.exceptions.HTTPError as status:
                 logger.warning(
-                    f"Error while removing {track.title} by {track.artist} from merged playlist - Server response: {status}",
+                    f"Error while removing {track.title} by {track.artist} from merged playlist {mergedPlaylist.name} - Server response: {status}",
                 )
                 continue
-            mergedPlaylist.remove(track)
-            logger.info(f"Removed {track.title} by {track.artist} from merged playlist")
+            mergedPlaylist.tracks.remove(track)
+            logger.info(
+                f"Removed {track.title} by {track.artist} from merged playlist {mergedPlaylist.name}"
+            )
 
     index = 0
     for playlist in playlists:
-        for track in playlist[1]:
-            if track not in mergedPlaylist:
+        for track in playlist.tracks:
+            if track not in mergedPlaylist.tracks:
                 try:
                     addToPlaylist(
-                        settings["merge_playlist"],
+                        mergedPlaylist.id,
                         track.uri,
-                        index + playlist[1].index(track),
+                        index + playlist.tracks.index(track),
                         authKey,
                     )
                 except requests.exceptions.HTTPError as status:
                     logger.warning(
-                        f"Error while adding {track.title} by {track.artist} from {playlist[0]} to merged playlist - Server response: {status}"
+                        f"Error while adding {track.title} by {track.artist} from {playlist.name} to merged playlist {mergedPlaylist.name} - Server response: {status}"
                     )
                     continue
-                mergedPlaylist.insert(index + playlist[1].index(track), track)
-                logger.info(
-                    f"Added {track.title} by {track.artist} from {playlist[0]} to merged playlist"
+                mergedPlaylist.tracks.insert(
+                    index + playlist.tracks.index(track), track
                 )
-        index += len(playlist[1])
+                logger.info(
+                    f"Added {track.title} by {track.artist} from {playlist.name} to merged playlist {mergedPlaylist.name}"
+                )
+        index += len(playlist.tracks)
 
     index = 0
     for playlist in playlists:
-        for track in playlist[1]:
-            if mergedPlaylist.index(track) != index + playlist[1].index(track):
+        for track in playlist.tracks:
+            if mergedPlaylist.tracks.index(track) != index + playlist.tracks.index(
+                track
+            ):
                 try:
                     reorderPlaylist(
-                        settings["merge_playlist"],
-                        mergedPlaylist.index(track),
-                        index + playlist[1].index(track),
+                        mergedPlaylist.id,
+                        mergedPlaylist.tracks.index(track),
+                        index + playlist.tracks.index(track),
                         authKey,
                     )
                 except requests.exceptions.HTTPError as status:
                     logger.warning(
-                        f"Error while moving {track.title} by {track.artist} from position {mergedPlaylist.index(track)} to {index + playlist[1].index(track)} - Server response: {status}"
+                        f"Error while moving {track.title} by {track.artist} from position {mergedPlaylist.tracks.index(track)} to {index + playlist.tracks.index(track)} - Server response: {status}"
                     )
                     continue
-                oldIndex = mergedPlaylist.index(track)
-                mergedPlaylist.remove(track)
-                mergedPlaylist.insert(index + playlist[1].index(track), track)
-                logger.info(
-                    f"Moved {track.title} by {track.artist} from position {oldIndex} to {mergedPlaylist.index(track)}"
+                oldIndex = mergedPlaylist.tracks.index(track)
+                mergedPlaylist.tracks.remove(track)
+                mergedPlaylist.tracks.insert(
+                    index + playlist.tracks.index(track), track
                 )
-        index += len(playlist[1])
+                logger.info(
+                    f"Moved {track.title} by {track.artist} from position {oldIndex} to {mergedPlaylist.tracks.index(track)}"
+                )
+        index += len(playlist.tracks)
 
 
 if __name__ == "__main__":
     logger = setup_logger("sync.log")
-    main()
+    main(logger)
