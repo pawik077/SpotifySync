@@ -9,7 +9,7 @@ from SpotifyAPI import (
     removeFromPlaylist,
     reorderPlaylist,
 )
-from utils import logError, log
+from utils import setup_logger
 
 
 def main():
@@ -17,39 +17,39 @@ def main():
         with open("settings.json", "r") as s:
             settings = json.load(s)
     except FileNotFoundError:
-        logError("Error while reading settings file - settings.json file not found")
+        logger.error("Error while reading settings file - settings.json file not found")
         sys.exit(-2)
     except json.decoder.JSONDecodeError:
-        logError("Error while reading settings file - JSON decoding failed")
+        logger.error("Error while reading settings file - JSON decoding failed")
         sys.exit(-3)
 
     if not settings.get("merge_playlist"):
-        logError("Configuration error - merge playlist not set")
+        logger.error("Configuration error - merge playlist not set")
         sys.exit(-4)
     if not settings.get("playlists"):
-        logError("Configuration error - source playlists not set")
+        logger.error("Configuration error - source playlists not set")
         sys.exit(-5)
 
     if int(time.time()) > settings.get("expires_at", 0) - 30 or not settings.get(
         "access_token"
     ):
         if not settings.get("refresh_token"):
-            logError("Authentication error - missing refresh token")
+            logger.error("Authentication error - missing refresh token")
             sys.exit(-1)
         if not settings.get("client_id"):
-            logError("Authentication error - missing client id")
+            logger.error("Authentication error - missing client id")
             sys.exit(-1)
         try:
             settings["access_token"], settings["refresh_token"], expires_in = refresh(
                 settings["refresh_token"], settings["client_id"]
             )
         except requests.exceptions.ConnectionError:
-            logError(
+            logger.error(
                 "Error while refreshing authorization token - Server connection error"
             )
             sys.exit(-10)
         except requests.exceptions.HTTPError as status:
-            logError(
+            logger.error(
                 f"Error while refreshing authorization token - Server response: {status}"
             )
             sys.exit(-1)
@@ -64,8 +64,8 @@ def main():
     try:
         mergedPlaylist = getPlaylistContents(settings["merge_playlist"], authKey)
     except requests.exceptions.HTTPError as status:
-        logError(
-            f"Error while downloading merged playlist  contents - Server response: {status}"
+        logger.error(
+            f"Error while downloading merged playlist contents - Server response: {status}"
         )
         sys.exit(-2)
     for playlist in settings["playlists"]:
@@ -74,7 +74,7 @@ def main():
                 (playlist["name"], getPlaylistContents(playlist["id"], authKey))
             )
         except requests.exceptions.HTTPError as status:
-            logError(
+            logger.error(
                 f"Error while downloading playlist {playlist['name']} contents - Server response: {status}"
             )
             sys.exit(-2)
@@ -88,12 +88,12 @@ def main():
             try:
                 removeFromPlaylist(settings["merge_playlist"], track.uri, authKey)
             except requests.exceptions.HTTPError as status:
-                logError(
+                logger.warning(
                     f"Error while removing {track.title} by {track.artist} from merged playlist - Server response: {status}",
                 )
                 continue
             mergedPlaylist.remove(track)
-            log(f"Removed {track.title} by {track.artist} from merged playlist")
+            logger.info(f"Removed {track.title} by {track.artist} from merged playlist")
 
     index = 0
     for playlist in playlists:
@@ -107,12 +107,12 @@ def main():
                         authKey,
                     )
                 except requests.exceptions.HTTPError as status:
-                    logError(
+                    logger.warning(
                         f"Error while adding {track.title} by {track.artist} from {playlist[0]} to merged playlist - Server response: {status}"
                     )
                     continue
                 mergedPlaylist.insert(index + playlist[1].index(track), track)
-                log(
+                logger.info(
                     f"Added {track.title} by {track.artist} from {playlist[0]} to merged playlist"
                 )
         index += len(playlist[1])
@@ -129,18 +129,19 @@ def main():
                         authKey,
                     )
                 except requests.exceptions.HTTPError as status:
-                    logError(
+                    logger.warning(
                         f"Error while moving {track.title} by {track.artist} from position {mergedPlaylist.index(track)} to {index + playlist[1].index(track)} - Server response: {status}"
                     )
                     continue
                 oldIndex = mergedPlaylist.index(track)
                 mergedPlaylist.remove(track)
                 mergedPlaylist.insert(index + playlist[1].index(track), track)
-                log(
+                logger.info(
                     f"Moved {track.title} by {track.artist} from position {oldIndex} to {mergedPlaylist.index(track)}"
                 )
         index += len(playlist[1])
 
 
 if __name__ == "__main__":
+    logger = setup_logger("sync.log")
     main()

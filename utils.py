@@ -1,14 +1,18 @@
-import sys
-import datetime
+import logging
+from logging.handlers import RotatingFileHandler
 
 
-def logError(message: str):
-    sys.stderr.write(
-        f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: {message}\n'
+def setup_logger(log_file: str = "sync.log") -> logging.Logger:
+    logger = logging.getLogger("SpotifySync")
+    logger.setLevel(logging.DEBUG)
+
+    fmt = logging.Formatter(
+        "%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
     )
-
-
-def log(message: str):
-    sys.stdout.write(
-        f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}: {message}\n'
+    file_handler = RotatingFileHandler(
+        log_file, maxBytes=10 * 1024 * 1024, backupCount=5
     )
+    file_handler.setFormatter(fmt)
+    if not logger.handlers:
+        logger.addHandler(file_handler)
+    return logger
