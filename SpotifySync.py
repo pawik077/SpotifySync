@@ -17,7 +17,7 @@ from utils import setup_logger
 logger = logging.getLogger("SpotifySync")
 
 
-def load_settings(filename: str = "settings.json"):
+def load_settings(filename: str = "settings.json") -> dict:
     try:
         with open(filename, "r") as s:
             settings = json.load(s)
@@ -31,12 +31,12 @@ def load_settings(filename: str = "settings.json"):
     return settings
 
 
-def save_settings(settings, filename: str = "settings.json"):
+def save_settings(settings: dict, filename: str = "settings.json") -> None:
     with open(filename, "w") as s:
         json.dump({i: settings[i] for i in settings if i != "filename"}, s, indent=2)
 
 
-def getAuthKey(settings: dict):
+def getAuthKey(settings: dict) -> str:
     if int(time.time()) > settings.get("expires_at", 0) - 30 or not settings.get(
         "access_token"
     ):
@@ -65,7 +65,9 @@ def getAuthKey(settings: dict):
     return "Bearer " + settings["access_token"]
 
 
-def getPlaylists(mergedPlaylistId: str, playlistIds: list[str], authKey: str):
+def getPlaylists(
+    mergedPlaylistId: str, playlistIds: list[str], authKey: str
+) -> tuple[Playlist, list[Playlist]]:
     playlists = []
     try:
         mergedPlaylist = getPlaylistMetadata(mergedPlaylistId, authKey)
@@ -88,13 +90,9 @@ def getPlaylists(mergedPlaylistId: str, playlistIds: list[str], authKey: str):
     return mergedPlaylist, playlists
 
 
-def sync(mergedPlaylist: Playlist, playlists: list[Playlist], authKey: str):
-    for track in mergedPlaylist.tracks:
-        found = False
-        for playlist in playlists:
-            if track in playlist.tracks:
-                found = True
-        if not found:
+def sync(mergedPlaylist: Playlist, playlists: list[Playlist], authKey: str) -> None:
+    for track in list(mergedPlaylist.tracks):
+        if not any(track in playlist.tracks for playlist in playlists):
             try:
                 removeFromPlaylist(mergedPlaylist.id, track.uri, authKey)
             except requests.exceptions.HTTPError as status:
@@ -134,28 +132,30 @@ def sync(mergedPlaylist: Playlist, playlists: list[Playlist], authKey: str):
     index = 0
     for playlist in playlists:
         for track in playlist.tracks:
-            if mergedPlaylist.tracks.index(track) != index + playlist.tracks.index(
-                track
-            ):
+            if track not in mergedPlaylist.tracks:
+                continue
+            current_pos = mergedPlaylist.tracks.index(track)
+            target_pos = index + playlist.tracks.index(track)
+            if current_pos != target_pos:
                 try:
                     reorderPlaylist(
                         mergedPlaylist.id,
-                        mergedPlaylist.tracks.index(track),
-                        index + playlist.tracks.index(track),
+                        current_pos,
+                        target_pos,
                         authKey,
                     )
                 except requests.exceptions.HTTPError as status:
                     logger.warning(
-                        f"Error while moving {track.title} by {track.artist} from position {mergedPlaylist.tracks.index(track)} to {index + playlist.tracks.index(track)} - Server response: {status}"
+                        f"Error while moving {track.title} by {track.artist} from position {current_pos} to {target_pos} - Server response: {status}"
                     )
                     continue
-                oldIndex = mergedPlaylist.tracks.index(track)
                 mergedPlaylist.tracks.remove(track)
                 mergedPlaylist.tracks.insert(
-                    index + playlist.tracks.index(track), track
+                    target_pos,
+                    track,
                 )
                 logger.info(
-                    f"Moved {track.title} by {track.artist} from position {oldIndex} to {mergedPlaylist.tracks.index(track)}"
+                    f"Moved {track.title} by {track.artist} from position {current_pos} to {target_pos}"
                 )
         index += len(playlist.tracks)
 
