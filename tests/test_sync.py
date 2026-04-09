@@ -76,6 +76,27 @@ def test_keeps_track_present_in_at_least_one_source():
     mocks["removeFromPlaylist"].assert_not_called()
 
 
+def test_removes_two_adjacent_tracks():
+    t1, t2, t3, t4 = track("uri:1"), track("uri:2"), track("uri:3"), track("uri:4")
+    merged = playlist("merged", t1, t2, t3, t4)
+    src_a = playlist("src_a", t1)
+    src_b = playlist("src_b", t4)
+
+    with patch.multiple(
+        "SpotifySync",
+        removeFromPlaylist=DEFAULT,
+        addToPlaylist=DEFAULT,
+        reorderPlaylist=DEFAULT,
+    ) as mocks:
+        sync(merged, [src_a, src_b], AUTH)
+
+    assert mocks["removeFromPlaylist"].call_args_list == [
+        call("merged", "uri:2", AUTH),
+        call("merged", "uri:3", AUTH),
+    ]
+    assert merged.tracks == [t1, t4]
+
+
 def test_remove_failure_keeps_track_in_merged():
     t1, t2 = track("uri:1"), track("uri:2")
     merged = playlist("merged", t1, t2)
