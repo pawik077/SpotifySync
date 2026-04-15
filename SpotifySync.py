@@ -17,12 +17,12 @@ from utils import setup_logger
 logger = logging.getLogger("SpotifySync")
 
 
-def load_settings(filename: str = "settings.json") -> dict:
+def load_settings(filename: str = "data/settings.json") -> dict:
     try:
         with open(filename, "r") as s:
             settings = json.load(s)
     except FileNotFoundError:
-        logger.error("Error while reading settings file - settings.json file not found")
+        logger.error(f"Error while reading settings file - {filename!r} not found")
         sys.exit(-2)
     except json.decoder.JSONDecodeError:
         logger.error("Error while reading settings file - JSON decoding failed")
@@ -31,7 +31,7 @@ def load_settings(filename: str = "settings.json") -> dict:
     return settings
 
 
-def save_settings(settings: dict, filename: str = "settings.json") -> None:
+def save_settings(settings: dict, filename: str = "data/settings.json") -> None:
     with open(filename, "w") as s:
         json.dump({i: settings[i] for i in settings if i != "filename"}, s, indent=2)
 
@@ -179,5 +179,5 @@ def main():
 
 
 if __name__ == "__main__":
-    setup_logger("sync.log")
+    setup_logger("data/sync.log")
     main()
