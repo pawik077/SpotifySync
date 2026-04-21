@@ -540,7 +540,7 @@ class PlaylistsTab(QWidget):
         self._build_ui()
         self._load_table()
         self._update_auth_state()
-        if self._auth_key:
+        if self._auth_key and time.time() < settings.get("expires_at", 0):
             self._load_all_covers()
             self._load_merge_info()
 
@@ -634,12 +634,13 @@ class PlaylistsTab(QWidget):
         cover.setStyleSheet("background:#2a2a2a;margin:2px;border-radius:3px;")
         self._table.setCellWidget(row, 0, cover)
 
+        was_blocked = self._table.signalsBlocked()
         self._table.blockSignals(True)
         self._table.setItem(row, 1, QTableWidgetItem(name))
         id_item = QTableWidgetItem(playlist_id)
         id_item.setForeground(QColor("#B3B3B3"))
         self._table.setItem(row, 2, id_item)
-        self._table.blockSignals(False)
+        self._table.blockSignals(was_blocked)
 
         if fetch_cover and self._auth_key and playlist_id:
             if image_url:
@@ -654,8 +655,8 @@ class PlaylistsTab(QWidget):
         else:
             t.loaded.connect(self._set_table_cover)
         t.finished.connect(lambda t=t: self._cover_threads.remove(t))
-        t.start()
         self._cover_threads.append(t)
+        t.start()
 
     def _set_table_cover(self, row: int, data: bytes):
         if row >= self._table.rowCount():
@@ -687,8 +688,8 @@ class PlaylistsTab(QWidget):
 
         t.loaded.connect(_on_details)
         t.finished.connect(lambda t=t: self._cover_threads.remove(t))
-        t.start()
         self._cover_threads.append(t)
+        t.start()
 
     def _mark_dirty(self):
         if not self._dirty:
@@ -860,8 +861,8 @@ class PlaylistsTab(QWidget):
 
         t.loaded.connect(_on_info)
         t.finished.connect(lambda t=t: self._cover_threads.remove(t))
-        t.start()
         self._cover_threads.append(t)
+        t.start()
 
     def update_settings(self, settings: dict):
         self._settings = settings
