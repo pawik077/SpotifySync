@@ -56,6 +56,7 @@ def load_settings(filename: str = SETTINGS_FILE):
             "expires_at": 0,
             "playlists": [],
             "merge_playlist": "",
+            "filename": SETTINGS_FILE,
         }
     except json.JSONDecodeError:
         # copied the previous one for now
@@ -68,6 +69,7 @@ def load_settings(filename: str = SETTINGS_FILE):
             "expires_at": 0,
             "playlists": [],
             "merge_playlist": "",
+            "filename": SETTINGS_FILE,
         }
     return settings
 
@@ -89,7 +91,14 @@ class AuthThread(QThread):
 
     def run(self):
         try:
-            self.success.emit(authorize(self._client_id))
+            access_token, refresh_token, expires_in = authorize(self._client_id)
+            self.success.emit(
+                {
+                    "access_token": access_token,
+                    "refresh_token": refresh_token,
+                    "expires_in": expires_in,
+                }
+            )
         except Exception as e:
             self.failed.emit(str(e))
 
@@ -480,7 +489,7 @@ class AuthTab(QWidget):
         self._refresh_thread.success.connect(self._on_refresh_ok)
         self._refresh_thread.revoked.connect(self._on_revoked)
         self._refresh_thread.failed.connect(
-            lambda _: self._set("grey", "Not authenticated", enabled=True)
+            lambda _: self._set("red", "Refresh failed — check connection", enabled=True)
         )
         self._refresh_thread.start()
 
@@ -768,12 +777,13 @@ class PlaylistsTab(QWidget):
             self._mark_dirty()
 
     def _swap_rows(self, a: int, b: int):
+        was_blocked = self._table.signalsBlocked()
         self._table.blockSignals(True)
         for col in (1, 2):
             ia, ib = self._table.takeItem(a, col), self._table.takeItem(b, col)
             self._table.setItem(a, col, ib)
             self._table.setItem(b, col, ia)
-        self._table.blockSignals(False)
+        self._table.blockSignals(was_blocked)
         # Swap cover pixmaps
         lbl_a = self._table.cellWidget(a, 0)
         lbl_b = self._table.cellWidget(b, 0)
@@ -823,6 +833,8 @@ class PlaylistsTab(QWidget):
         self._merge_cover.setVisible(authenticated)
         self._add_btn.setEnabled(authenticated)
         self._merge_btn.setEnabled(authenticated)
+        if not authenticated:
+            self._merge_name.setText("Not selected")
 
     def _load_all_covers(self):
         for row in range(self._table.rowCount()):
