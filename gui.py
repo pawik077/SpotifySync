@@ -468,8 +468,15 @@ class AuthTab(QWidget):
         self._configure_btn.setFixedWidth(180)
         self._configure_btn.clicked.connect(self._open_configure)
 
+        self._signout_btn = QPushButton("Sign out")
+        self._signout_btn.setObjectName("secondary")
+        self._signout_btn.setFixedWidth(180)
+        self._signout_btn.setVisible(False)
+        self._signout_btn.clicked.connect(self._sign_out)
+
         lay.addLayout(status_row)
         lay.addWidget(self._btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(self._signout_btn, alignment=Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(self._configure_btn, alignment=Qt.AlignmentFlag.AlignCenter)
         outer.addWidget(card)
 
@@ -489,7 +496,9 @@ class AuthTab(QWidget):
         self._refresh_thread.success.connect(self._on_refresh_ok)
         self._refresh_thread.revoked.connect(self._on_revoked)
         self._refresh_thread.failed.connect(
-            lambda _: self._set("red", "Refresh failed — check connection", enabled=True)
+            lambda _: self._set(
+                "red", "Refresh failed — check connection", enabled=True
+            )
         )
         self._refresh_thread.start()
 
@@ -527,10 +536,15 @@ class AuthTab(QWidget):
         self.token_cleared.emit()
         self._set("red", "Token invalid — re-authenticate", enabled=True)
 
+    def _sign_out(self):
+        self.token_cleared.emit()
+        self._set("grey", "Logged out", enabled=True)
+
     def _set(self, color: str, text: str, *, enabled: bool):
         self._dot.set_color(color)
         self._status_lbl.setText(text)
         self._btn.setEnabled(enabled)
+        self._signout_btn.setVisible(color == "green")
 
 
 # ── PlaylistsTab ──────────────────────────────────────────────────────────────
