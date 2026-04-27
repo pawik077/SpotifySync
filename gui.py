@@ -23,9 +23,10 @@ from PyQt6.QtWidgets import (
     QListWidgetItem,
     QFrame,
     QPlainTextEdit,
+    QTextEdit,
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize, QFileSystemWatcher
-from PyQt6.QtGui import QPixmap, QIcon, QColor
+from PyQt6.QtGui import QPixmap, QIcon, QColor, QTextCharFormat
 
 from auth import authorize
 import SpotifyAPI
@@ -943,6 +944,24 @@ class LogTab(QWidget):
         if query:
             log = [x for x in log if query in x.lower()]
         self._view.setPlainText("".join(log))
+        self._highlight_matches(query)
+
+    def _highlight_matches(self, query: str):
+        fmt = QTextCharFormat()
+        fmt.setBackground(QColor("#1DB954"))
+        fmt.setForeground(QColor("#000000"))
+        selections: list[QTextEdit.ExtraSelection] = []
+        if query:
+            doc = self._view.document()
+            assert doc is not None
+            cur = doc.find(query)
+            while not cur.isNull():
+                selection = QTextEdit.ExtraSelection()
+                selection.cursor = cur
+                selection.format = fmt
+                selections.append(selection)
+                cur = doc.find(query, cur)
+        self._view.setExtraSelections(selections)
 
 
 # ── MainWindow ────────────────────────────────────────────────────────────────
