@@ -22,8 +22,9 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QFrame,
+    QPlainTextEdit,
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize, QFileSystemWatcher
 from PyQt6.QtGui import QPixmap, QIcon, QColor
 
 from auth import authorize
@@ -894,6 +895,56 @@ class PlaylistsTab(QWidget):
         self._settings = settings
 
 
+# ── LogTab ────────────────────────────────────────────────────────────────────
+
+
+class LogTab(QWidget):
+    LOG_FILE = "data/sync.log"
+
+    def __init__(self):
+        super().__init__()
+        self._build_ui()
+        self._watcher = QFileSystemWatcher([self.LOG_FILE])
+        self._watcher.fileChanged.connect(self._on_file_changed)
+        self._load_log()
+
+    def _build_ui(self):
+        lay = QVBoxLayout(self)
+        lay.setSpacing(8)
+        lay.setContentsMargins(12, 12, 12, 12)
+
+        self._search = QLineEdit()
+        self._search.setPlaceholderText("Search logs…")
+        self._search.textChanged.connect(self._load_log)
+        lay.addWidget(self._search)
+
+        self._view = QPlainTextEdit()
+        self._view.setReadOnly(True)
+        self._view.setStyleSheet(
+            "QPlainTextEdit { background:#181818; color:#B3B3B3;"
+            " font-family: monospace; font-size: 12px; border: none; }"
+        )
+        lay.addWidget(self._view)
+
+    def _on_file_changed(self, path: str):
+        # Re-add path in case the file was replaced (log rotation)
+        if path not in self._watcher.files():
+            self._watcher.addPath(path)
+        self._load_log()
+
+    def _load_log(self):
+        try:
+            with open(self.LOG_FILE, "r") as f:
+                log = f.readlines()
+        except FileNotFoundError:
+            log = []
+        log.reverse()
+        query = self._search.text().lower()
+        if query:
+            log = [x for x in log if query in x.lower()]
+        self._view.setPlainText("".join(log))
+
+
 # ── MainWindow ────────────────────────────────────────────────────────────────
 
 
@@ -918,6 +969,7 @@ class MainWindow(QMainWindow):
         self._tabs = QTabWidget()
         self._auth_tab = AuthTab(self._settings)
         self._playlists_tab = PlaylistsTab(self._settings)
+        self._log_tab = LogTab()
 
         self._auth_tab.authenticated.connect(self._on_authenticated)
         self._auth_tab.token_cleared.connect(self._on_token_cleared)
@@ -925,6 +977,7 @@ class MainWindow(QMainWindow):
 
         self._tabs.addTab(self._auth_tab, "Authentication")
         self._tabs.addTab(self._playlists_tab, "Playlists")
+        self._tabs.addTab(self._log_tab, "Log")
 
         bar = QFrame()
         bar.setObjectName("bottomBar")
