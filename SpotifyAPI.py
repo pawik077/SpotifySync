@@ -4,6 +4,14 @@ from dataclasses import dataclass, field
 BASE_URL = "https://api.spotify.com/v1"
 
 
+@dataclass
+class User:
+    id: str = ""
+    display_name: str = ""
+    image_url: str = ""
+    followers: int | None = None
+
+
 @dataclass(eq=False)
 class Album:
     title: str = ""
@@ -41,7 +49,7 @@ class Playlist:
     public: bool | None = None
     collaborative: bool | None = None
     followers: int | None = None
-    owner: dict = field(default_factory=dict)
+    owner: User | None = None
     tracks: list[Track] = field(default_factory=list)
 
 
@@ -61,12 +69,18 @@ def refresh(refresh_token: str, client_id: str) -> tuple[str, str, int]:
     return data["access_token"], data["refresh_token"], data["expires_in"]
 
 
-def getCurrentUser(authkey: str) -> dict:
+def getCurrentUser(authkey: str) -> User:
     url = f"{BASE_URL}/me"
     headers = {"Authorization": authkey}
     response = requests.get(url, headers=headers)
     response.raise_for_status()
-    return response.json()  # ["id"]
+    data = response.json()
+    return User(
+        id=data["id"],
+        display_name=data.get("display_name", data["id"]),
+        image_url=data["images"][0]["url"] if data.get("images") else "",
+        followers=data["followers"]["total"] if data.get("followers") else None,
+    )
 
 
 def getCurrentUserPlaylists(authKey: str) -> list[Playlist]:
@@ -96,12 +110,12 @@ def getCurrentUserPlaylists(authKey: str) -> list[Playlist]:
                     #     item["followers"]["total"] if item.get("followers") else 0
                     # ), # no followers info in /me/playlists
                     owner=(
-                        {
-                            "id": item["owner"]["id"],
-                            "display_name": item["owner"]["display_name"],
-                        }
+                        User(
+                            id=item["owner"]["id"],
+                            display_name=item["owner"]["display_name"],
+                        )
                         if item.get("owner")
-                        else {}
+                        else None
                     ),
                 )
             )
@@ -131,9 +145,9 @@ def getPlaylistMetadata(playlistId: str, authKey: str) -> Playlist:
         collaborative=data.get("collaborative"),
         followers=data["followers"]["total"] if data.get("followers") else None,
         owner=(
-            {"id": data["owner"]["id"], "display_name": data["owner"]["display_name"]}
+            User(id=data["owner"]["id"], display_name=data["owner"]["display_name"])
             if data.get("owner")
-            else {}
+            else None
         ),
     )
 
