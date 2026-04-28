@@ -26,7 +26,7 @@ from PyQt6.QtWidgets import (
     QTextEdit,
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize, QFileSystemWatcher
-from PyQt6.QtGui import QPixmap, QIcon, QColor, QTextCharFormat
+from PyQt6.QtGui import QPixmap, QIcon, QColor, QTextCharFormat, QPainter, QPainterPath
 
 from auth import authorize
 import SpotifyAPI
@@ -38,6 +38,22 @@ COVER_SIZE = 48
 ROW_HEIGHT = 56
 
 logger = logging.getLogger("SpotifySync")
+
+
+def _make_circular(px: QPixmap, size: int) -> QPixmap:
+    result = QPixmap(size, size)
+    result.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(result)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    path = QPainterPath()
+    path.addEllipse(result.rect().toRectF())
+    painter.setClipPath(path)
+    painter.drawPixmap(
+        result.rect(),
+        px.scaled(size, size, Qt.AspectRatioMode.KeepAspectRatioByExpanding),
+    )
+    painter.end()
+    return result
 
 
 # ── Settings ──────────────────────────────────────────────────────────────────
@@ -201,6 +217,21 @@ class PlaylistDetailsThread(QThread):
             self.loaded.emit(self._id, data.name, data.cover_url)
         except Exception:
             pass
+
+
+class FetchUserThread(QThread):
+    loaded = pyqtSignal(object)  # SpotifyAPI.User
+    failed = pyqtSignal(str)
+
+    def __init__(self, auth_key: str):
+        super().__init__()
+        self._auth_key = auth_key
+
+    def run(self):
+        try:
+            self.loaded.emit(SpotifyAPI.getCurrentUser(self._auth_key))
+        except Exception as e:
+            self.failed.emit(str(e))
 
 
 class SyncThread(QThread):
@@ -438,6 +469,7 @@ class AuthTab(QWidget):
         self._settings = settings
         self._auth_thread = None
         self._refresh_thread = None
+        self._user_thread = None
         self._build_ui()
         self._init_state()
 
@@ -476,7 +508,22 @@ class AuthTab(QWidget):
         self._signout_btn.setVisible(False)
         self._signout_btn.clicked.connect(self._sign_out)
 
+        user_row = QHBoxLayout()
+        user_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        user_row.setSpacing(10)
+        self._user_avatar = QLabel()
+        self._user_avatar.setFixedSize(COVER_SIZE, COVER_SIZE)
+        self._user_avatar.setStyleSheet("background:#2a2a2a;border-radius:24px;")
+        self._user_name = QLabel()
+        self._user_name.setStyleSheet("color:#B3B3B3;font-size:12px;")
+        user_row.addWidget(self._user_avatar)
+        user_row.addWidget(self._user_name)
+        self._user_widget = QWidget()
+        self._user_widget.setLayout(user_row)
+        self._user_widget.setVisible(False)
+
         lay.addLayout(status_row)
+        lay.addWidget(self._user_widget, alignment=Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(self._btn, alignment=Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(self._signout_btn, alignment=Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(self._configure_btn, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -492,6 +539,7 @@ class AuthTab(QWidget):
             return
         if time.time() < self._settings.get("expires_at", 0):
             self._set("green", "Authenticated", enabled=False)
+            self._fetch_user(make_auth_key(self._settings.get("access_token", "")))
             return
         self._set("yellow", "Refreshing token…", enabled=False)
         self._refresh_thread = RefreshThread(self._settings["client_id"], rt)
@@ -527,12 +575,14 @@ class AuthTab(QWidget):
         expires_at = int(time.time()) + td["expires_in"]
         self.authenticated.emit(td["access_token"], td["refresh_token"], expires_at)
         self._set("green", "Authenticated", enabled=False)
+        self._fetch_user(make_auth_key(td["access_token"]))
 
     def _on_refresh_ok(self, td: dict):
         rt = td.get("refresh_token") or self._settings.get("refresh_token", "")
         expires_at = int(time.time()) + td["expires_in"]
         self.authenticated.emit(td["access_token"], rt, expires_at)
         self._set("green", "Authenticated", enabled=False)
+        self._fetch_user(make_auth_key(td["access_token"]))
 
     def _on_revoked(self):
         self.token_cleared.emit()
@@ -542,11 +592,47 @@ class AuthTab(QWidget):
         self.token_cleared.emit()
         self._set("grey", "Logged out", enabled=True)
 
+    def _fetch_user(self, auth_key: str):
+        self._user_thread = FetchUserThread(auth_key)
+        self._user_thread.loaded.connect(self._on_user_loaded)
+        self._user_thread.start()
+
+    def _on_user_loaded(self, user: SpotifyAPI.User):
+        self._user_name.setText(
+            (
+                f"{user.display_name} ({user.id})"
+                if user.display_name != user.id
+                else f"{user.id}"
+            )
+        )
+
+        if user.image_url:
+
+            def _set(_, data: bytes):
+                px = QPixmap()
+                px.loadFromData(data)
+                if not px.isNull():
+                    self._user_avatar.setPixmap(_make_circular(px, COVER_SIZE))
+
+            self._load_image("user_image", user.image_url, callback=_set)
+
+        self._user_widget.setVisible(True)
+
+    def _load_image(self, tag, url, callback):
+        self._user_thread = CoverThread(tag, url)
+        self._user_thread.loaded.connect(callback)
+        self._user_thread.finished.connect(lambda: setattr(self, "_user_thread", None))
+        self._user_thread.start()
+
     def _set(self, color: str, text: str, *, enabled: bool):
         self._dot.set_color(color)
         self._status_lbl.setText(text)
         self._btn.setEnabled(enabled)
         self._signout_btn.setVisible(color == "green")
+        if color != "green":
+            self._user_widget.setVisible(False)
+            self._user_name.setText("")
+            self._user_avatar.setPixmap(QPixmap())
 
 
 # ── PlaylistsTab ──────────────────────────────────────────────────────────────
