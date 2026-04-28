@@ -24,6 +24,7 @@ from PyQt6.QtWidgets import (
     QFrame,
     QPlainTextEdit,
     QTextEdit,
+    QMessageBox,
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize, QFileSystemWatcher
 from PyQt6.QtGui import QPixmap, QIcon, QColor, QTextCharFormat, QPainter, QPainterPath
@@ -59,37 +60,39 @@ def _make_circular(px: QPixmap, size: int) -> QPixmap:
 # ── Settings ──────────────────────────────────────────────────────────────────
 
 
-def load_settings(filename: str = SETTINGS_FILE):
+def load_settings(filename: str = SETTINGS_FILE) -> dict:
+    _defaults: dict = {
+        "access_token": "",
+        "refresh_token": "",
+        "client_id": "",
+        "expires_at": 0,
+        "playlists": [],
+        "merge_playlist": "",
+        "filename": SETTINGS_FILE,
+    }
     try:
         with open(filename, "r") as s:
-            settings = json.load(s)
+            return json.load(s)
     except FileNotFoundError:
         logger.warning(
             "Error while reading settings file - settings file not found - creating new"
         )
-        settings = {
-            "access_token": "",
-            "refresh_token": "",
-            "client_id": "",
-            "expires_at": 0,
-            "playlists": [],
-            "merge_playlist": "",
-            "filename": SETTINGS_FILE,
-        }
+        return _defaults
     except json.JSONDecodeError:
-        # copied the previous one for now
-        # should log an error and ask user for permission to overwrite
         logger.error("Error while reading settings file - JSON decoding failed")
-        settings = {
-            "access_token": "",
-            "refresh_token": "",
-            "client_id": "",
-            "expires_at": 0,
-            "playlists": [],
-            "merge_playlist": "",
-            "filename": SETTINGS_FILE,
-        }
-    return settings
+        retval = QMessageBox.warning(
+            None,
+            "Warning: Malformed settings file",
+            "The settings file cannot be parsed. Should a clean one be created?",
+            QMessageBox.StandardButton.Yes,
+            QMessageBox.StandardButton.No,
+        )
+        if retval == QMessageBox.StandardButton.No:
+            sys.exit(1)
+        logger.warning(
+            "Error while reading settings file - JSON decoding failed - creating new"
+        )
+        return _defaults
 
 
 def make_auth_key(access_token: str) -> str:
