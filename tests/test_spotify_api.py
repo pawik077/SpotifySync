@@ -5,6 +5,8 @@ from SpotifyAPI import (
     Track,
     Album,
     Playlist,
+    User,
+    getCurrentUser,
     refresh,
     getPlaylistContents,
     getPlaylistMetadata,
@@ -34,6 +36,23 @@ def mock_pages(*pages):
 
 PLAYLIST_ID = "pl123"
 AUTH = "Bearer test_token"
+
+# ── object equality ───────────────────────────────────────────────────────────
+
+
+def test_track_equal_uris():
+    track1 = Track("track1", "artist1", None, "uri")
+    track2 = Track("track2", "artist2", None, "uri")
+
+    assert track1 == track2
+
+
+def test_album_equal_uris():
+    album1 = Album("title1", "artist1", "cover1", "date1", 1, "uri")
+    album2 = Album("title2", "artist2", "cover2", "date2", 2, "uri")
+
+    assert album1 == album2
+
 
 # ── refresh ───────────────────────────────────────────────────────────────────
 
@@ -80,7 +99,7 @@ def test_getPlaylistMetadata_fields_mapped_correctly():
     assert pl.public is True
     assert pl.collaborative is False
     assert pl.followers == 42
-    assert pl.owner == {"id": "user1", "display_name": "User One"}
+    assert pl.owner == User(id="user1", display_name="User One")
 
 
 def test_getPlaylistMetadata_empty_images_gives_empty_cover_url():
@@ -94,6 +113,14 @@ def test_getPlaylistMetadata_propagates_http_error():
     with patch("requests.get", return_value=mock_http_error(404)):
         with pytest.raises(HTTPError):
             getPlaylistMetadata(PLAYLIST_ID, AUTH)
+
+
+def test_getPlaylistMetadata_no_owner_returns_none():
+    data = {**METADATA_RESPONSE, "owner": None}
+    with patch("requests.get", return_value=mock_response(data)):
+        pl = getPlaylistMetadata(PLAYLIST_ID, AUTH)
+
+    assert pl.owner is None
 
 
 # ── getCurrentUserPlaylists ───────────────────────────────────────────────────
@@ -137,6 +164,14 @@ def test_getCurrentUserPlaylists_count_mismatch_raises():
     with patch("requests.get", return_value=mock_response(page)):
         with pytest.raises(RuntimeError, match="expected 5"):
             getCurrentUserPlaylists(AUTH)
+
+
+def test_getCurrentUserPlaylists_no_owner_returns_none():
+    page = {"total": 1, "next": None, "items": [{**PLAYLIST_LIST_ITEM, "owner": None}]}
+    with patch("requests.get", return_value=mock_response(page)):
+        result = getCurrentUserPlaylists(AUTH)
+
+    assert result[0].owner is None
 
 
 # ── getPlaylistContents ───────────────────────────────────────────────────────
@@ -216,3 +251,60 @@ def test_getPlaylistContents_count_mismatch_raises():
     with patch("requests.get", return_value=mock_response(page)):
         with pytest.raises(RuntimeError, match="expected 5"):
             getPlaylistContents(PLAYLIST_ID, AUTH)
+
+
+def test_getPlaylistContents_no_album_returns_none():
+    page = {
+        "total": 1,
+        "next": None,
+        "items": [
+            {**PLAYLIST_ITEM, "track": {**PLAYLIST_ITEM["track"], "album": None}}
+        ],
+    }
+    with patch("requests.get", return_value=mock_response(page)):
+        result = getPlaylistContents(PLAYLIST_ID, AUTH)
+
+    assert result[0].album is None
+
+
+# ── getCurrentUser ────────────────────────────────────────────────────────────
+
+
+USER_RESPONSE = {
+    "display_name": "User 1",
+    "followers": {"total": 10},
+    "id": "user1",
+    "images": [{"url": "http://image.jpg"}],
+}
+
+
+def test_getCurrentUser_propagates_http_error():
+    with patch("requests.get", return_value=mock_http_error(404)):
+        with pytest.raises(HTTPError):
+            getCurrentUser(AUTH)
+
+
+def test_getCurrentUser_returns_user_correctly():
+    with patch("requests.get", return_value=mock_response(USER_RESPONSE)):
+        result = getCurrentUser(AUTH)
+
+    assert result.id == "user1"
+    assert result.display_name == "User 1"
+    assert result.image_url == "http://image.jpg"
+    assert result.followers == 10
+
+
+def test_getCurrentUser_empty_images_gives_empty_image_url():
+    data = {**USER_RESPONSE, "images": []}
+    with patch("requests.get", return_value=mock_response(data)):
+        result = getCurrentUser(AUTH)
+
+    assert result.image_url == ""
+
+
+def test_getCurrentUser_no_followers_returns_none():
+    data = {**USER_RESPONSE, "followers": {}}
+    with patch("requests.get", return_value=mock_response(data)):
+        result = getCurrentUser(AUTH)
+
+    assert result.followers is None
