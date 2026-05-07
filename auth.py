@@ -42,9 +42,17 @@ def authorize(client_id: str):
         "playlist-modify-private",
         "playlist-read-private",
     ]
-    scope_str = urllib.parse.quote(" ".join(scopes))
     redirect_uri = "http://127.0.0.1:8888/callback"
-    url = f"https://accounts.spotify.com/authorize?client_id={client_id}&response_type=code&code_challenge_method=S256&code_challenge={code_challenge}&redirect_uri={urllib.parse.quote(redirect_uri, safe='')}&state={state}&scope={scope_str}"
+    params = {
+        "client_id": client_id,
+        "response_type": "code",
+        "code_challenge_method": "S256",
+        "code_challenge": code_challenge,
+        "redirect_uri": redirect_uri,
+        "state": state,
+        "scope": " ".join(scopes),
+    }
+    url = "https://accounts.spotify.com/authorize?" + urllib.parse.urlencode(params)
     redirect_uri_parsed = urllib.parse.urlparse(redirect_uri)
     server_ip = redirect_uri_parsed.hostname
     server_port = redirect_uri_parsed.port
