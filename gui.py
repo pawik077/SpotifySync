@@ -285,6 +285,7 @@ class PlaylistPickerDialog(QDialog):
         existing_ids: set,
         single_select: bool = False,
         current_id: str = "",
+        user_id: str = "",
         parent=None,
     ):
         super().__init__(parent)
@@ -292,6 +293,7 @@ class PlaylistPickerDialog(QDialog):
         self._existing_ids = existing_ids
         self._single_select = single_select
         self._current_id = current_id
+        self._user_id = user_id
         self._all_playlists: list = []
         self._covers: dict = {}
         self._fetch_thread = None
@@ -347,7 +349,16 @@ class PlaylistPickerDialog(QDialog):
         )
         self._fetch_thread.start()
 
-    def _on_loaded(self, playlists: list):
+    def _on_loaded(self, playlists: list[SpotifyAPI.Playlist]):
+        if self._single_select and self._user_id:
+            playlists = [
+                pl
+                for pl in playlists
+                if pl.owner is None
+                or pl.collaborative is None
+                or pl.owner.id == self._user_id
+                or pl.collaborative
+            ]
         self._all_playlists = playlists
         self._loading.hide()
         self._list.show()
@@ -466,6 +477,7 @@ class ClientIdDialog(QDialog):
 class AuthTab(QWidget):
     authenticated = pyqtSignal(str, str, int)  # access_token, refresh_token, expires_at
     token_cleared = pyqtSignal()
+    user_changed = pyqtSignal(object)  # SpotifyAPI.User | None
 
     def __init__(self, settings: dict):
         super().__init__()
@@ -589,10 +601,12 @@ class AuthTab(QWidget):
 
     def _on_revoked(self):
         self.token_cleared.emit()
+        self.user_changed.emit(None)
         self._set("red", "Token invalid — re-authenticate", enabled=True)
 
     def _sign_out(self):
         self.token_cleared.emit()
+        self.user_changed.emit(None)
         self._set("grey", "Logged out", enabled=True)
 
     def _fetch_user(self, auth_key: str):
@@ -620,6 +634,7 @@ class AuthTab(QWidget):
             self._load_image("user_image", user.image_url, callback=_set)
 
         self._user_widget.setVisible(True)
+        self.user_changed.emit(user)
 
     def _load_image(self, tag, url, callback):
         self._user_thread = CoverThread(tag, url)
@@ -649,6 +664,7 @@ class PlaylistsTab(QWidget):
         self._settings = settings
         self._auth_key = make_auth_key(settings.get("access_token", ""))
         self._merge_id = settings.get("merge_playlist", "")
+        self._user_id: str = ""
         self._cover_threads: list = []
         self._dirty = False
         self._build_ui()
@@ -833,6 +849,7 @@ class PlaylistsTab(QWidget):
             set(),
             single_select=True,
             current_id=self._merge_id,
+            user_id=self._user_id,
             parent=self,
         )
         if dlg.exec() == QDialog.DialogCode.Accepted:
@@ -981,6 +998,9 @@ class PlaylistsTab(QWidget):
         self._cover_threads.append(t)
         t.start()
 
+    def set_user(self, user):  # SpotifyAPI.User | None
+        self._user_id = user.id if user is not None else ""
+
     def update_settings(self, settings: dict):
         self._settings = settings
 
@@ -1081,6 +1101,7 @@ class MainWindow(QMainWindow):
 
         self._auth_tab.authenticated.connect(self._on_authenticated)
         self._auth_tab.token_cleared.connect(self._on_token_cleared)
+        self._auth_tab.user_changed.connect(self._playlists_tab.set_user)
         self._playlists_tab.settings_changed.connect(self._on_settings_changed)
 
         self._tabs.addTab(self._auth_tab, "Authentication")
