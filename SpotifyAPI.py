@@ -69,9 +69,9 @@ def refresh(refresh_token: str, client_id: str) -> tuple[str, str, int]:
     return data["access_token"], data["refresh_token"], data["expires_in"]
 
 
-def getCurrentUser(authkey: str) -> User:
+def getCurrentUser(authKey: str) -> User:
     url = f"{BASE_URL}/me"
-    headers = {"Authorization": authkey}
+    headers = {"Authorization": authKey}
     response = requests.get(url, headers=headers)
     response.raise_for_status()
     data = response.json()
@@ -106,9 +106,7 @@ def getCurrentUserPlaylists(authKey: str) -> list[Playlist]:
                     description=item.get("description", ""),
                     public=item.get("public"),
                     collaborative=item.get("collaborative"),
-                    # followers=(
-                    #     item["followers"]["total"] if item.get("followers") else 0
-                    # ), # no followers info in /me/playlists
+                    # important: no followers info in /me/playlists
                     owner=(
                         User(
                             id=item["owner"]["id"],
@@ -153,7 +151,7 @@ def getPlaylistMetadata(playlistId: str, authKey: str) -> Playlist:
 
 
 def getPlaylistContents(playlistId: str, authKey: str) -> list[Track]:
-    playlist = []
+    tracks = []
     total = None
     url = f"{BASE_URL}/playlists/{playlistId}/items"
     headers = {"Authorization": authKey}
@@ -204,13 +202,13 @@ def getPlaylistContents(playlistId: str, authKey: str) -> list[Track]:
                 ),
                 uri=item["track"].get("uri", ""),
             )
-            playlist.append(track)
+            tracks.append(track)
         url = data["next"]
-    if len(playlist) != total:
+    if len(tracks) != total:
         raise RuntimeError(
-            f"Incomplete response: expected {total} tracks for playlist {playlistId}, received {len(playlist)}"
+            f"Incomplete response: expected {total} tracks for playlist {playlistId}, received {len(tracks)}"
         )
-    return playlist
+    return tracks
 
 
 def addToPlaylist(

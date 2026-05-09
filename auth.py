@@ -10,7 +10,7 @@ import string
 from queue import Queue, Empty
 
 
-def challenge():
+def challenge() -> tuple[str, str]:
     verifier = "".join(
         secrets.choice(string.ascii_letters + string.digits) for _ in range(128)
     )
@@ -19,10 +19,10 @@ def challenge():
     return verifier, code_challenge
 
 
-def authorize(client_id: str):
+def authorize(client_id: str) -> tuple[str, str, int]:
     callback_queue = Queue()
 
-    def callback(environ, start_response):
+    def callback(environ, start_response) -> list[bytes]:
         if environ.get("PATH_INFO") != "/callback":
             start_response("404 Not Found", [])
             return [b""]
@@ -79,7 +79,7 @@ def authorize(client_id: str):
         code = callback_response["code"][0]
     except KeyError:
         raise KeyError("Error: Malformed request response")
-    url = "https://accounts.spotify.com/api/token"
+    token_url = "https://accounts.spotify.com/api/token"
     payload = {
         "client_id": client_id,
         "grant_type": "authorization_code",
@@ -89,7 +89,9 @@ def authorize(client_id: str):
     }
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
     response = requests.post(
-        "https://accounts.spotify.com/api/token", data=payload, headers=headers
+        token_url,
+        data=payload,
+        headers=headers,
     )
     response.raise_for_status()
     data = response.json()
