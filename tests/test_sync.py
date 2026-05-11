@@ -1,9 +1,9 @@
 from unittest.mock import DEFAULT, patch, call
-from SpotifyAPI import (
+from spotifysync.api import (
     Track,
     Playlist,
 )
-from SpotifySync import sync
+from spotifysync.sync import sync
 from requests.exceptions import HTTPError
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -31,7 +31,7 @@ def test_removes_track_absent_from_all_sources():
     source = playlist("src", t1)  # t2 not present anywhere
 
     with patch.multiple(
-        "SpotifySync",
+        "spotifysync.sync",
         removeFromPlaylist=DEFAULT,
         addToPlaylist=DEFAULT,
         reorderPlaylist=DEFAULT,
@@ -48,7 +48,7 @@ def test_keeps_track_present_in_one_source():
     source = playlist("src", t1)
 
     with patch.multiple(
-        "SpotifySync",
+        "spotifysync.sync",
         removeFromPlaylist=DEFAULT,
         addToPlaylist=DEFAULT,
         reorderPlaylist=DEFAULT,
@@ -66,7 +66,7 @@ def test_keeps_track_present_in_at_least_one_source():
     src_b = playlist("src_b", t1)  # t1 present
 
     with patch.multiple(
-        "SpotifySync",
+        "spotifysync.sync",
         removeFromPlaylist=DEFAULT,
         addToPlaylist=DEFAULT,
         reorderPlaylist=DEFAULT,
@@ -83,7 +83,7 @@ def test_removes_two_adjacent_tracks():
     src_b = playlist("src_b", t4)
 
     with patch.multiple(
-        "SpotifySync",
+        "spotifysync.sync",
         removeFromPlaylist=DEFAULT,
         addToPlaylist=DEFAULT,
         reorderPlaylist=DEFAULT,
@@ -103,7 +103,7 @@ def test_remove_failure_keeps_track_in_merged():
     source = playlist("src", t1)
 
     with patch.multiple(
-        "SpotifySync",
+        "spotifysync.sync",
         removeFromPlaylist=DEFAULT,
         addToPlaylist=DEFAULT,
         reorderPlaylist=DEFAULT,
@@ -123,7 +123,7 @@ def test_adds_track_missing_from_merged():
     source = playlist("src", t1)
 
     with patch.multiple(
-        "SpotifySync",
+        "spotifysync.sync",
         removeFromPlaylist=DEFAULT,
         addToPlaylist=DEFAULT,
         reorderPlaylist=DEFAULT,
@@ -141,7 +141,7 @@ def test_adds_at_correct_position_across_multiple_sources():
     src_b = playlist("src_b", t3)
 
     with patch.multiple(
-        "SpotifySync",
+        "spotifysync.sync",
         removeFromPlaylist=DEFAULT,
         addToPlaylist=DEFAULT,
         reorderPlaylist=DEFAULT,
@@ -161,7 +161,7 @@ def test_does_not_add_already_present_track():
     source = playlist("src", t1)
 
     with patch.multiple(
-        "SpotifySync",
+        "spotifysync.sync",
         removeFromPlaylist=DEFAULT,
         addToPlaylist=DEFAULT,
         reorderPlaylist=DEFAULT,
@@ -177,7 +177,7 @@ def test_add_failure_does_not_insert():
     source = playlist("src", t1, t2)
 
     with patch.multiple(
-        "SpotifySync",
+        "spotifysync.sync",
         removeFromPlaylist=DEFAULT,
         addToPlaylist=DEFAULT,
         reorderPlaylist=DEFAULT,
@@ -198,7 +198,7 @@ def test_reorders_incorrectly_placed_track():
     src_b = playlist("src_b", t3, t4)
 
     with patch.multiple(
-        "SpotifySync",
+        "spotifysync.sync",
         removeFromPlaylist=DEFAULT,
         addToPlaylist=DEFAULT,
         reorderPlaylist=DEFAULT,
@@ -216,7 +216,7 @@ def test_does_not_reorder_correctly_placed_track():
     src_b = playlist("src_b", t3, t4)
 
     with patch.multiple(
-        "SpotifySync",
+        "spotifysync.sync",
         removeFromPlaylist=DEFAULT,
         addToPlaylist=DEFAULT,
         reorderPlaylist=DEFAULT,
@@ -232,7 +232,7 @@ def test_reorder_failure_does_not_reorder():
     source = playlist("src", t1, t2, t3)
 
     with patch.multiple(
-        "SpotifySync",
+        "spotifysync.sync",
         removeFromPlaylist=DEFAULT,
         addToPlaylist=DEFAULT,
         reorderPlaylist=DEFAULT,
@@ -263,7 +263,7 @@ def test_full_sync_correct():
     src_d = playlist("src_d", t6)
 
     with patch.multiple(
-        "SpotifySync",
+        "spotifysync.sync",
         removeFromPlaylist=DEFAULT,
         addToPlaylist=DEFAULT,
         reorderPlaylist=DEFAULT,

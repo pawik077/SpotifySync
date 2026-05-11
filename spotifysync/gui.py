@@ -29,10 +29,10 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize, QFileSystemWatcher
 from PyQt6.QtGui import QPixmap, QIcon, QColor, QTextCharFormat, QPainter, QPainterPath
 
-from auth import authorize
-import SpotifyAPI
-import SpotifySync
-from utils import setup_logger
+from .auth import authorize
+from . import api as SpotifyAPI
+from . import sync as SpotifySync
+from .utils import setup_logger
 
 SETTINGS_FILE = "data/settings.json"
 COVER_SIZE = 48
@@ -1318,9 +1318,14 @@ class MainWindow(QMainWindow):
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
-if __name__ == "__main__":
+
+def main():
     app = QApplication(sys.argv)
     app.setApplicationName("SpotifySync")
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()

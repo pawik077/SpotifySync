@@ -2,7 +2,7 @@ import base64
 import hashlib
 import string
 from unittest.mock import patch
-from auth import challenge
+from spotifysync.auth import challenge
 
 
 def test_challenge_verifier_secure_length():

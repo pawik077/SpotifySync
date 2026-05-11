@@ -3,7 +3,8 @@ import json
 import requests
 import time
 import logging
-from SpotifyAPI import (
+
+from .api import (
     Playlist,
     refresh,
     getPlaylistMetadata,
@@ -12,7 +13,7 @@ from SpotifyAPI import (
     removeFromPlaylist,
     reorderPlaylist,
 )
-from utils import setup_logger
+from .utils import setup_logger
 
 logger = logging.getLogger("SpotifySync")
 

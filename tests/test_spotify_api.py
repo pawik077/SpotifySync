@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from requests.exceptions import HTTPError
-from SpotifyAPI import (
+from spotifysync.api import (
     Track,
     Album,
     Playlist,
