@@ -1,3 +1,4 @@
+from typing import Any
 import requests
 from dataclasses import dataclass, field
 
@@ -227,7 +228,7 @@ def removeFromPlaylist(
 ) -> requests.models.Response:
     url = f"{BASE_URL}/playlists/{playlistId}/items"
     headers = {"Authorization": authKey}
-    payload = {"items": [{"uri": uri}]}
+    payload: dict[str, Any] = {"items": [{"uri": uri}]}
     response = requests.delete(url, headers=headers, json=payload)
     response.raise_for_status()
     return response
@@ -238,7 +239,7 @@ def reorderPlaylist(
 ) -> requests.models.Response:
     url = f"{BASE_URL}/playlists/{playlistId}/items"
     headers = {"Authorization": authKey, "Content-Type": "application/json"}
-    payload = {"range_start": initPos, "insert_before": endPos}
+    payload: dict[str, Any] = {"range_start": initPos, "insert_before": endPos}
     response = requests.put(url, headers=headers, json=payload)
     response.raise_for_status()
     return response

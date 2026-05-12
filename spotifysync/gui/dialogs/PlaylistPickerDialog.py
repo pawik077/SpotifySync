@@ -13,7 +13,7 @@ from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QIcon, QPixmap
 
 from ..workers import BatchCoverThread, FetchPlaylistsThread
-from .._helpers import COVER_SIZE, ROW_HEIGHT, _format_owner
+from .._helpers import COVER_SIZE, ROW_HEIGHT, format_owner
 from ... import api as SpotifyAPI
 
 
@@ -110,7 +110,7 @@ class PlaylistPickerDialog(QDialog):
     def _populate(self, playlists: list):
         self._list.clear()
         for pl in playlists:
-            owner_str = _format_owner(pl.owner, self._user_id)
+            owner_str = format_owner(pl.owner, self._user_id)
             text = f"  {pl.name}\n  {owner_str}" if owner_str else f"  {pl.name}"
             item = QListWidgetItem(text)
             item.setData(Qt.ItemDataRole.UserRole, pl)

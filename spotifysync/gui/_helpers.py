@@ -11,7 +11,7 @@ def make_auth_key(access_token: str) -> str:
     return f"Bearer {access_token}" if access_token else ""
 
 
-def _make_circular(px: QPixmap, size: int) -> QPixmap:
+def make_circular(px: QPixmap, size: int) -> QPixmap:
     result = QPixmap(size, size)
     result.fill(Qt.GlobalColor.transparent)
     painter = QPainter(result)
@@ -27,7 +27,7 @@ def _make_circular(px: QPixmap, size: int) -> QPixmap:
     return result
 
 
-def _format_owner(owner: SpotifyAPI.User | None, user_id: str) -> str:
+def format_owner(owner: SpotifyAPI.User | None, user_id: str) -> str:
     if owner is None or owner.id == user_id:
         return ""
     if owner.display_name and owner.display_name != owner.id:
