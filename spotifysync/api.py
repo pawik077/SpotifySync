@@ -52,6 +52,7 @@ class Playlist:
     followers: int | None = None
     owner: User | None = None
     tracks: list[Track] = field(default_factory=list)
+    snapshot_id: str = ""
 
 
 def refresh(refresh_token: str, client_id: str) -> tuple[str, str, int]:
@@ -126,15 +127,33 @@ def getCurrentUserPlaylists(authKey: str) -> list[Playlist]:
     return playlists
 
 
-def getPlaylistMetadata(playlistId: str, authKey: str) -> Playlist:
+def getPlaylistMetadata(
+    playlistId: str, authKey: str, cache: dict | None = None
+) -> Playlist:
     url = f"{BASE_URL}/playlists/{playlistId}"
-    headers = {"Authorization": authKey}
+    if cache is None:
+        cache = {}
+    if cache.get("metadata", {}).get(playlistId):
+        etag = cache["metadata"][playlistId].get("etag", "")
+        headers = {"Authorization": authKey, "If-None-Match": etag}
+    else:
+        headers = {"Authorization": authKey}
     params = {
-        "fields": "id,name,images(url),description,public,collaborative,followers.total,owner.id,owner.display_name"
+        "fields": "id,name,images(url),description,public,collaborative,followers.total,owner.id,owner.display_name,snapshot_id"
     }
     response = requests.get(url, headers=headers, params=params)
     response.raise_for_status()
-    data = response.json()
+    if response.status_code == 304:
+        try:
+            data = cache["metadata"][playlistId]["data"]
+        except KeyError:
+            del cache["metadata"][playlistId]
+            raise KeyError("Cache malformed - deleting")
+    else:
+        data = response.json()
+        cache.setdefault("metadata", {}).setdefault(playlistId, {})
+        cache["metadata"][playlistId]["etag"] = response.headers.get("etag", "")
+        cache["metadata"][playlistId]["data"] = data
     return Playlist(
         id=playlistId,
         name=data.get("name", ""),
@@ -148,67 +167,99 @@ def getPlaylistMetadata(playlistId: str, authKey: str) -> Playlist:
             if data.get("owner")
             else None
         ),
+        snapshot_id=data.get("snapshot_id", ""),
     )
 
 
-def getPlaylistContents(playlistId: str, authKey: str) -> list[Track]:
+def _parse_track(item: dict) -> Track | None:
+    if item.get("track") is None:
+        return None
+    return Track(
+        title=item["track"].get("name", ""),
+        artist=(
+            ", ".join([artist["name"] for artist in item["track"]["artists"]])
+            if item["track"].get("artists")
+            else ""
+        ),
+        album=(
+            Album(
+                title=item["track"]["album"].get("name", ""),
+                artist=(
+                    ", ".join(
+                        [artist["name"] for artist in item["track"]["album"]["artists"]]
+                    )
+                    if item["track"]["album"].get("artists")
+                    else ""
+                ),
+                cover_url=(
+                    item["track"]["album"]["images"][0]["url"]
+                    if item["track"]["album"].get("images")
+                    else ""
+                ),
+                release_date=item["track"]["album"].get("release_date", ""),
+                total_tracks=item["track"]["album"].get("total_tracks", None),
+                uri=item["track"]["album"]["uri"],
+            )
+            if item["track"].get("album")
+            else None
+        ),
+        uri=item["track"].get("uri", ""),
+    )
+
+
+def getPlaylistContents(
+    playlistId: str, authKey: str, cache: dict | None = None, snapshot_id: str = ""
+) -> list[Track]:
     tracks = []
     total = None
     url = f"{BASE_URL}/playlists/{playlistId}/items"
+    if cache is None:
+        cache = {}
+    if (
+        snapshot_id
+        and cache.get("contents", {}).get(playlistId, {}).get("snapshot_id")
+        == snapshot_id
+    ):
+        try:
+            total = len(cache["contents"][playlistId]["items"])
+            for item in cache["contents"][playlistId]["items"]:
+                track = _parse_track(item)
+                if track is None:
+                    total -= 1
+                    continue
+                tracks.append(track)
+            return tracks
+        except KeyError:
+            total = None
+            tracks = []
+            del cache["contents"][playlistId]  # malformed cache
     headers = {"Authorization": authKey}
     params = {
         "fields": "total,next,items(track(name,uri,artists(name),album(images(url),name,release_date,total_tracks,uri,artists(name))))"
     }
+    items = []
     while url is not None:
         response = requests.get(url, headers=headers, params=params)
         response.raise_for_status()
         data = response.json()
+        items.extend(data["items"])
         if total is None:
             total = data["total"]
         for item in data["items"]:
-            if item.get("track") is None:
+            track = _parse_track(item)
+            if track is None:
                 total -= 1
                 continue
-            track = Track(
-                title=item["track"].get("name", ""),
-                artist=(
-                    ", ".join([artist["name"] for artist in item["track"]["artists"]])
-                    if item["track"].get("artists")
-                    else ""
-                ),
-                album=(
-                    Album(
-                        title=item["track"]["album"].get("name", ""),
-                        artist=(
-                            ", ".join(
-                                [
-                                    artist["name"]
-                                    for artist in item["track"]["album"]["artists"]
-                                ]
-                            )
-                            if item["track"]["album"].get("artists")
-                            else ""
-                        ),
-                        cover_url=(
-                            item["track"]["album"]["images"][0]["url"]
-                            if item["track"]["album"].get("images")
-                            else ""
-                        ),
-                        release_date=item["track"]["album"].get("release_date", ""),
-                        total_tracks=item["track"]["album"].get("total_tracks", None),
-                        uri=item["track"]["album"]["uri"],
-                    )
-                    if item["track"].get("album")
-                    else None
-                ),
-                uri=item["track"].get("uri", ""),
-            )
             tracks.append(track)
         url = data["next"]
     if len(tracks) != total:
         raise RuntimeError(
             f"Incomplete response: expected {total} tracks for playlist {playlistId}, received {len(tracks)}"
         )
+    cache.setdefault("contents", {})[playlistId] = {
+        "snapshot_id": snapshot_id,
+        "items": items,
+    }
     return tracks
 
 

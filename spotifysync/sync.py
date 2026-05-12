@@ -37,6 +37,24 @@ def save_settings(settings: dict, filename: str = "data/settings.json") -> None:
         json.dump({i: settings[i] for i in settings if i != "filename"}, s, indent=2)
 
 
+def load_cache(filename: str = "data/cache.json") -> dict:
+    try:
+        with open(filename, "r") as c:
+            cache = json.load(c)
+    except FileNotFoundError:
+        logger.debug("Cache file not found - creating new")
+        cache = {}
+    except json.decoder.JSONDecodeError:
+        logger.warning("Error reading cache file - creating new")
+        cache = {}
+    return cache
+
+
+def save_cache(cache: dict, filename: str = "data/cache.json") -> None:
+    with open(filename, "w") as c:
+        json.dump(cache, c, indent=None)
+
+
 def getAuthKey(settings: dict) -> str:
     if int(time.time()) > settings.get("expires_at", 0) - 30 or not settings.get(
         "access_token"
@@ -67,27 +85,56 @@ def getAuthKey(settings: dict) -> str:
 
 
 def getPlaylists(
-    mergedPlaylistId: str, playlistIds: list[str], authKey: str
+    mergedPlaylistId: str, playlistIds: list[str], authKey: str, cache: dict
 ) -> tuple[Playlist, list[Playlist]]:
     playlists = []
     try:
-        mergedPlaylist = getPlaylistMetadata(mergedPlaylistId, authKey)
-        mergedPlaylist.tracks = getPlaylistContents(mergedPlaylistId, authKey)
+        mergedPlaylist = getPlaylistMetadata(mergedPlaylistId, authKey, cache)
+        mergedPlaylist.tracks = getPlaylistContents(
+            mergedPlaylistId, authKey, cache, mergedPlaylist.snapshot_id
+        )
     except requests.exceptions.HTTPError as status:
         logger.error(
             f"Error while downloading merged playlist {mergedPlaylistId} contents - Server response: {status}"
         )
         sys.exit(-2)
+    except KeyError:
+        logger.warning("Playlist metadata cache malformed - retrying")
+        try:
+            mergedPlaylist = getPlaylistMetadata(mergedPlaylistId, authKey, cache)
+            mergedPlaylist.tracks = getPlaylistContents(
+                mergedPlaylistId, authKey, cache, mergedPlaylist.snapshot_id
+            )
+        except requests.exceptions.HTTPError as status:
+            logger.error(
+                f"Error while downloading merged playlist {mergedPlaylistId} contents - Server response: {status}"
+            )
+            sys.exit(-2)
     for playlistId in playlistIds:
         try:
-            playlist = getPlaylistMetadata(playlistId, authKey)
-            playlist.tracks = getPlaylistContents(playlistId, authKey)
+            playlist = getPlaylistMetadata(playlistId, authKey, cache)
+            playlist.tracks = getPlaylistContents(
+                playlistId, authKey, cache, playlist.snapshot_id
+            )
             playlists.append(playlist)
         except requests.exceptions.HTTPError as status:
             logger.error(
                 f"Error while downloading playlist {playlistId} contents - Server response: {status}"
             )
             sys.exit(-2)
+        except KeyError:
+            logger.warning("Playlist metadata cache malformed - retrying")
+            try:
+                playlist = getPlaylistMetadata(playlistId, authKey, cache)
+                playlist.tracks = getPlaylistContents(
+                    playlistId, authKey, cache, playlist.snapshot_id
+                )
+                playlists.append(playlist)
+            except requests.exceptions.HTTPError as status:
+                logger.error(
+                    f"Error while downloading playlist {playlistId} contents - Server response: {status}"
+                )
+                sys.exit(-2)
     return mergedPlaylist, playlists
 
 
@@ -170,11 +217,13 @@ def main():
     if not settings.get("playlists"):
         logger.error("Configuration error - source playlists not set")
         sys.exit(-5)
+    cache = load_cache()
 
     authKey = getAuthKey(settings)
 
     mergedPlaylist, playlists = getPlaylists(
-        settings["merge_playlist"], settings["playlists"], authKey
+        settings["merge_playlist"], settings["playlists"], authKey, cache
     )
 
     sync(mergedPlaylist, playlists, authKey)
+    save_cache(cache)
