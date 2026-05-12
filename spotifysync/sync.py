@@ -162,6 +162,7 @@ def sync(mergedPlaylist: Playlist, playlists: list[Playlist], authKey: str) -> N
 
 
 def main():
+    setup_logger("data/sync.log")
     settings = load_settings()
     if not settings.get("merge_playlist"):
         logger.error("Configuration error - merge playlist not set")
@@ -177,8 +178,3 @@ def main():
     )
 
     sync(mergedPlaylist, playlists, authKey)
-
-
-if __name__ == "__main__":
-    setup_logger("data/sync.log")
-    main()
