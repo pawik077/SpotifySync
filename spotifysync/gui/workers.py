@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QLabel
 from PyQt6.QtCore import QThread, pyqtSignal
 
 from ..auth import authorize
-from .. import api as SpotifyAPI
+from ..api import SpotifyClient
 from .. import sync as SpotifySync
 
 
@@ -41,7 +41,7 @@ class RefreshThread(QThread):
 
     def run(self):
         try:
-            access_token, refresh_token, expires_in = SpotifyAPI.refresh(
+            access_token, refresh_token, expires_in = SpotifyClient.refresh(
                 self._refresh_token, self._client_id
             )
             self.success.emit(
@@ -69,8 +69,9 @@ class FetchPlaylistsThread(QThread):
         self._auth_key = auth_key
 
     def run(self):
+        client = SpotifyClient(self._auth_key)
         try:
-            self.success.emit(SpotifyAPI.getCurrentUserPlaylists(self._auth_key))
+            self.success.emit(client.getCurrentUserPlaylists())
         except Exception as e:
             self.failed.emit(str(e))
 
@@ -114,14 +115,16 @@ class BatchCoverThread(QThread):
 class PlaylistDetailsThread(QThread):
     loaded = pyqtSignal(str, str, str, object)  # playlist_id, name, image_url, owner
 
-    def __init__(self, playlist_id: str, auth_key: str):
+    def __init__(self, playlist_id: str, auth_key: str, cache: dict):
         super().__init__()
         self._id = playlist_id
         self._auth_key = auth_key
+        self._cache = cache
 
     def run(self):
+        client = SpotifyClient(self._auth_key, self._cache)
         try:
-            data = SpotifyAPI.getPlaylistMetadata(self._id, self._auth_key)
+            data = client.getPlaylistMetadata(self._id)
             self.loaded.emit(self._id, data.name, data.cover_url, data.owner)
         except Exception:
             pass
@@ -136,8 +139,9 @@ class FetchUserThread(QThread):
         self._auth_key = auth_key
 
     def run(self):
+        client = SpotifyClient(self._auth_key)
         try:
-            self.loaded.emit(SpotifyAPI.getCurrentUser(self._auth_key))
+            self.loaded.emit(client.getCurrentUser())
         except Exception as e:
             self.failed.emit(str(e))
 

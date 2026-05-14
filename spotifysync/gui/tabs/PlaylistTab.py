@@ -26,9 +26,10 @@ from ... import sync as SpotifySync
 class PlaylistsTab(QWidget):
     settings_changed = pyqtSignal(bool)  # True = unsaved changes, False = saved
 
-    def __init__(self, settings: dict):
+    def __init__(self, settings: dict, cache: dict):
         super().__init__()
         self._settings = settings
+        self._cache = cache
         self._auth_key = make_auth_key(settings.get("access_token", ""))
         self._merge_id = settings.get("merge_playlist", "")
         self._user_id: str = ""
@@ -187,7 +188,7 @@ class PlaylistsTab(QWidget):
             lbl.setPixmap(scaled)
 
     def _fetch_cover_by_id(self, row: int, playlist_id: str):
-        t = PlaylistDetailsThread(playlist_id, self._auth_key)
+        t = PlaylistDetailsThread(playlist_id, self._auth_key, self._cache)
 
         def _on_details(
             _: str, name: str, url: str, owner: SpotifyAPI.User | None, r: int = row
@@ -365,7 +366,7 @@ class PlaylistsTab(QWidget):
         if not self._merge_id:
             return
         expected_id = self._merge_id
-        t = PlaylistDetailsThread(self._merge_id, self._auth_key)
+        t = PlaylistDetailsThread(self._merge_id, self._auth_key, self._cache)
 
         def _on_info(_: str, name: str, url: str, owner: SpotifyAPI.User | None):
             if self._merge_id != expected_id:
