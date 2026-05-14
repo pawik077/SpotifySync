@@ -23,6 +23,7 @@ from ..utils import setup_logger
 from .. import sync as SpotifySync
 
 SETTINGS_FILE = "data/settings.json"
+CACHE_FILE = "data/cache.json"
 
 logger = logging.getLogger("SpotifySync")
 
@@ -70,6 +71,7 @@ class MainWindow(QMainWindow):
         os.makedirs("data", exist_ok=True)
         setup_logger("data/sync.log")
         self._settings = load_settings()
+        self._cache = SpotifySync.load_cache(CACHE_FILE)
         self._sync_thread = None
         self._build_ui()
         self._apply_style()
@@ -82,7 +84,7 @@ class MainWindow(QMainWindow):
 
         self._tabs = QTabWidget()
         self._auth_tab = AuthTab(self._settings)
-        self._playlists_tab = PlaylistsTab(self._settings)
+        self._playlists_tab = PlaylistsTab(self._settings, self._cache)
         self._log_tab = LogTab()
 
         self._auth_tab.authenticated.connect(self._on_authenticated)
@@ -149,6 +151,7 @@ class MainWindow(QMainWindow):
         self._sync_thread.start()
 
     def _on_sync_ok(self):
+        self._cache.update(SpotifySync.load_cache(CACHE_FILE))
         self._sync_btn.setEnabled(True)
         self._sync_dot.set_color("green")
         self._sync_status.setText("Sync complete")
@@ -157,6 +160,10 @@ class MainWindow(QMainWindow):
         self._sync_btn.setEnabled(True)
         self._sync_dot.set_color("red")
         self._sync_status.setText(f"Sync failed: {message}")
+
+    def closeEvent(self, a0):
+        SpotifySync.save_cache(self._cache, CACHE_FILE)
+        super().closeEvent(a0)
 
     def _apply_style(self):
         self.setStyleSheet("""

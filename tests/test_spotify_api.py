@@ -6,11 +6,7 @@ from spotifysync.api import (
     Album,
     Playlist,
     User,
-    getCurrentUser,
-    refresh,
-    getPlaylistContents,
-    getPlaylistMetadata,
-    getCurrentUserPlaylists,
+    SpotifyClient,
 )
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -64,14 +60,14 @@ def test_refresh_returns_token_tuple():
         "expires_in": 3600,
     }
     with patch("requests.post", return_value=mock_response(data)):
-        result = refresh("old_refresh", "client_id")
+        result = SpotifyClient.refresh("old_refresh", "client_id")
     assert result == ("new_access", "new_refresh", 3600)
 
 
 def test_refresh_propagates_http_error():
     with patch("requests.post", return_value=mock_http_error(401)):
         with pytest.raises(HTTPError):
-            refresh("token", "client_id")
+            SpotifyClient.refresh("token", "client_id")
 
 
 # ── getPlaylistMetadata ───────────────────────────────────────────────────────
@@ -89,8 +85,9 @@ METADATA_RESPONSE = {
 
 
 def test_getPlaylistMetadata_fields_mapped_correctly():
+    client = SpotifyClient(AUTH)
     with patch("requests.get", return_value=mock_response(METADATA_RESPONSE)):
-        pl = getPlaylistMetadata(PLAYLIST_ID, AUTH)
+        pl = client.getPlaylistMetadata(PLAYLIST_ID)
 
     assert pl.id == PLAYLIST_ID
     assert pl.name == "My Playlist"
@@ -103,22 +100,25 @@ def test_getPlaylistMetadata_fields_mapped_correctly():
 
 
 def test_getPlaylistMetadata_empty_images_gives_empty_cover_url():
+    client = SpotifyClient(AUTH)
     data = {**METADATA_RESPONSE, "images": []}
     with patch("requests.get", return_value=mock_response(data)):
-        pl = getPlaylistMetadata(PLAYLIST_ID, AUTH)
+        pl = client.getPlaylistMetadata(PLAYLIST_ID)
     assert pl.cover_url == ""
 
 
 def test_getPlaylistMetadata_propagates_http_error():
+    client = SpotifyClient(AUTH)
     with patch("requests.get", return_value=mock_http_error(404)):
         with pytest.raises(HTTPError):
-            getPlaylistMetadata(PLAYLIST_ID, AUTH)
+            client.getPlaylistMetadata(PLAYLIST_ID)
 
 
 def test_getPlaylistMetadata_no_owner_returns_none():
+    client = SpotifyClient(AUTH)
     data = {**METADATA_RESPONSE, "owner": None}
     with patch("requests.get", return_value=mock_response(data)):
-        pl = getPlaylistMetadata(PLAYLIST_ID, AUTH)
+        pl = client.getPlaylistMetadata(PLAYLIST_ID)
 
     assert pl.owner is None
 
@@ -137,9 +137,10 @@ PLAYLIST_LIST_ITEM = {
 
 
 def test_getCurrentUserPlaylists_returns_playlist_objects():
+    client = SpotifyClient(AUTH)
     page = {"total": 1, "next": None, "items": [PLAYLIST_LIST_ITEM]}
     with patch("requests.get", return_value=mock_response(page)):
-        result = getCurrentUserPlaylists(AUTH)
+        result = client.getCurrentUserPlaylists()
 
     assert len(result) == 1
     assert isinstance(result[0], Playlist)
@@ -150,26 +151,29 @@ def test_getCurrentUserPlaylists_returns_playlist_objects():
 
 
 def test_getCurrentUserPlaylists_follows_pagination():
+    client = SpotifyClient(AUTH)
     page1 = {"total": 2, "next": "http://next-page", "items": [PLAYLIST_LIST_ITEM]}
     page2 = {"total": 2, "next": None, "items": [{**PLAYLIST_LIST_ITEM, "id": "pl2"}]}
     with patch("requests.get", side_effect=mock_pages(page1, page2)):
-        result = getCurrentUserPlaylists(AUTH)
+        result = client.getCurrentUserPlaylists()
 
     assert len(result) == 2
     assert result[1].id == "pl2"
 
 
 def test_getCurrentUserPlaylists_count_mismatch_raises():
+    client = SpotifyClient(AUTH)
     page = {"total": 5, "next": None, "items": [PLAYLIST_LIST_ITEM]}
     with patch("requests.get", return_value=mock_response(page)):
         with pytest.raises(RuntimeError, match="expected 5"):
-            getCurrentUserPlaylists(AUTH)
+            client.getCurrentUserPlaylists()
 
 
 def test_getCurrentUserPlaylists_no_owner_returns_none():
+    client = SpotifyClient(AUTH)
     page = {"total": 1, "next": None, "items": [{**PLAYLIST_LIST_ITEM, "owner": None}]}
     with patch("requests.get", return_value=mock_response(page)):
-        result = getCurrentUserPlaylists(AUTH)
+        result = client.getCurrentUserPlaylists()
 
     assert result[0].owner is None
 
@@ -194,9 +198,10 @@ PLAYLIST_ITEM = {
 
 
 def test_getPlaylistContents_returns_playlist_contents():
+    client = SpotifyClient(AUTH)
     page = {"total": 1, "next": None, "items": [PLAYLIST_ITEM]}
     with patch("requests.get", return_value=mock_response(page)):
-        result = getPlaylistContents(PLAYLIST_ID, AUTH)
+        result = client.getPlaylistContents(PLAYLIST_ID)
 
     assert len(result) == 1
     assert isinstance(result[0], Track)
@@ -212,14 +217,16 @@ def test_getPlaylistContents_returns_playlist_contents():
 
 
 def test_getPlaylistContents_artist_join():
+    client = SpotifyClient(AUTH)
     page = {"total": 1, "next": None, "items": [PLAYLIST_ITEM]}
     with patch("requests.get", return_value=mock_response(page)):
-        result = getPlaylistContents(PLAYLIST_ID, AUTH)
+        result = client.getPlaylistContents(PLAYLIST_ID)
 
     assert result[0].artist == "Artist A, Artist B"
 
 
 def test_getPlaylistContents_follows_pagination():
+    client = SpotifyClient(AUTH)
     page1 = {"total": 2, "next": "http://next-page", "items": [PLAYLIST_ITEM]}
     page2 = {
         "total": 2,
@@ -232,28 +239,31 @@ def test_getPlaylistContents_follows_pagination():
         ],
     }
     with patch("requests.get", side_effect=mock_pages(page1, page2)):
-        result = getPlaylistContents(PLAYLIST_ID, AUTH)
+        result = client.getPlaylistContents(PLAYLIST_ID)
 
     assert len(result) == 2
     assert result[1].uri == "spotify:track:def"
 
 
 def test_getPlaylistContents_null_track_matches_total():
+    client = SpotifyClient(AUTH)
     page = {"total": 2, "next": None, "items": [PLAYLIST_ITEM, {"track": None}]}
     with patch("requests.get", return_value=mock_response(page)):
-        result = getPlaylistContents(PLAYLIST_ID, AUTH)
+        result = client.getPlaylistContents(PLAYLIST_ID)
 
     assert len(result) == 1
 
 
 def test_getPlaylistContents_count_mismatch_raises():
+    client = SpotifyClient(AUTH)
     page = {"total": 5, "next": None, "items": [PLAYLIST_ITEM]}
     with patch("requests.get", return_value=mock_response(page)):
         with pytest.raises(RuntimeError, match="expected 5"):
-            getPlaylistContents(PLAYLIST_ID, AUTH)
+            client.getPlaylistContents(PLAYLIST_ID)
 
 
 def test_getPlaylistContents_no_album_returns_none():
+    client = SpotifyClient(AUTH)
     page = {
         "total": 1,
         "next": None,
@@ -262,7 +272,7 @@ def test_getPlaylistContents_no_album_returns_none():
         ],
     }
     with patch("requests.get", return_value=mock_response(page)):
-        result = getPlaylistContents(PLAYLIST_ID, AUTH)
+        result = client.getPlaylistContents(PLAYLIST_ID)
 
     assert result[0].album is None
 
@@ -279,14 +289,16 @@ USER_RESPONSE = {
 
 
 def test_getCurrentUser_propagates_http_error():
+    client = SpotifyClient(AUTH)
     with patch("requests.get", return_value=mock_http_error(404)):
         with pytest.raises(HTTPError):
-            getCurrentUser(AUTH)
+            client.getCurrentUser()
 
 
 def test_getCurrentUser_returns_user_correctly():
+    client = SpotifyClient(AUTH)
     with patch("requests.get", return_value=mock_response(USER_RESPONSE)):
-        result = getCurrentUser(AUTH)
+        result = client.getCurrentUser()
 
     assert result.id == "user1"
     assert result.display_name == "User 1"
@@ -295,16 +307,18 @@ def test_getCurrentUser_returns_user_correctly():
 
 
 def test_getCurrentUser_empty_images_gives_empty_image_url():
+    client = SpotifyClient(AUTH)
     data = {**USER_RESPONSE, "images": []}
     with patch("requests.get", return_value=mock_response(data)):
-        result = getCurrentUser(AUTH)
+        result = client.getCurrentUser()
 
     assert result.image_url == ""
 
 
 def test_getCurrentUser_no_followers_returns_none():
+    client = SpotifyClient(AUTH)
     data = {**USER_RESPONSE, "followers": {}}
     with patch("requests.get", return_value=mock_response(data)):
-        result = getCurrentUser(AUTH)
+        result = client.getCurrentUser()
 
     assert result.followers is None

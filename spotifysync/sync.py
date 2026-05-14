@@ -6,12 +6,7 @@ import logging
 
 from .api import (
     Playlist,
-    refresh,
-    getPlaylistMetadata,
-    getPlaylistContents,
-    addToPlaylist,
-    removeFromPlaylist,
-    reorderPlaylist,
+    SpotifyClient,
 )
 from .utils import setup_logger
 
@@ -37,6 +32,24 @@ def save_settings(settings: dict, filename: str = "data/settings.json") -> None:
         json.dump({i: settings[i] for i in settings if i != "filename"}, s, indent=2)
 
 
+def load_cache(filename: str = "data/cache.json") -> dict:
+    try:
+        with open(filename, "r") as c:
+            cache = json.load(c)
+    except FileNotFoundError:
+        logger.debug("Cache file not found - creating new")
+        cache = {}
+    except json.decoder.JSONDecodeError:
+        logger.warning("Error reading cache file - creating new")
+        cache = {}
+    return cache
+
+
+def save_cache(cache: dict, filename: str = "data/cache.json") -> None:
+    with open(filename, "w") as c:
+        json.dump(cache, c, indent=None)
+
+
 def getAuthKey(settings: dict) -> str:
     if int(time.time()) > settings.get("expires_at", 0) - 30 or not settings.get(
         "access_token"
@@ -48,8 +61,8 @@ def getAuthKey(settings: dict) -> str:
             logger.error("Authentication error - missing client id")
             sys.exit(-1)
         try:
-            settings["access_token"], settings["refresh_token"], expires_in = refresh(
-                settings["refresh_token"], settings["client_id"]
+            settings["access_token"], settings["refresh_token"], expires_in = (
+                SpotifyClient.refresh(settings["refresh_token"], settings["client_id"])
             )
         except requests.exceptions.ConnectionError:
             logger.error(
@@ -67,35 +80,66 @@ def getAuthKey(settings: dict) -> str:
 
 
 def getPlaylists(
-    mergedPlaylistId: str, playlistIds: list[str], authKey: str
+    mergedPlaylistId: str, playlistIds: list[str], client: SpotifyClient
 ) -> tuple[Playlist, list[Playlist]]:
     playlists = []
     try:
-        mergedPlaylist = getPlaylistMetadata(mergedPlaylistId, authKey)
-        mergedPlaylist.tracks = getPlaylistContents(mergedPlaylistId, authKey)
+        mergedPlaylist = client.getPlaylistMetadata(mergedPlaylistId)
+        mergedPlaylist.tracks = client.getPlaylistContents(
+            mergedPlaylistId, mergedPlaylist.snapshot_id
+        )
     except requests.exceptions.HTTPError as status:
         logger.error(
             f"Error while downloading merged playlist {mergedPlaylistId} contents - Server response: {status}"
         )
         sys.exit(-2)
+    except KeyError:
+        logger.warning("Playlist metadata cache malformed - retrying")
+        try:
+            mergedPlaylist = client.getPlaylistMetadata(mergedPlaylistId)
+            mergedPlaylist.tracks = client.getPlaylistContents(
+                mergedPlaylistId, mergedPlaylist.snapshot_id
+            )
+        except requests.exceptions.HTTPError as status:
+            logger.error(
+                f"Error while downloading merged playlist {mergedPlaylistId} contents - Server response: {status}"
+            )
+            sys.exit(-2)
     for playlistId in playlistIds:
         try:
-            playlist = getPlaylistMetadata(playlistId, authKey)
-            playlist.tracks = getPlaylistContents(playlistId, authKey)
+            playlist = client.getPlaylistMetadata(playlistId)
+            playlist.tracks = client.getPlaylistContents(
+                playlistId, playlist.snapshot_id
+            )
             playlists.append(playlist)
         except requests.exceptions.HTTPError as status:
             logger.error(
                 f"Error while downloading playlist {playlistId} contents - Server response: {status}"
             )
             sys.exit(-2)
+        except KeyError:
+            logger.warning("Playlist metadata cache malformed - retrying")
+            try:
+                playlist = client.getPlaylistMetadata(playlistId)
+                playlist.tracks = client.getPlaylistContents(
+                    playlistId, playlist.snapshot_id
+                )
+                playlists.append(playlist)
+            except requests.exceptions.HTTPError as status:
+                logger.error(
+                    f"Error while downloading playlist {playlistId} contents - Server response: {status}"
+                )
+                sys.exit(-2)
     return mergedPlaylist, playlists
 
 
-def sync(mergedPlaylist: Playlist, playlists: list[Playlist], authKey: str) -> None:
+def sync(
+    mergedPlaylist: Playlist, playlists: list[Playlist], client: SpotifyClient
+) -> None:
     for track in list(mergedPlaylist.tracks):
         if not any(track in playlist.tracks for playlist in playlists):
             try:
-                removeFromPlaylist(mergedPlaylist.id, track.uri, authKey)
+                client.removeFromPlaylist(mergedPlaylist.id, track.uri)
             except requests.exceptions.HTTPError as status:
                 logger.warning(
                     f"Error while removing {track.title} by {track.artist} from merged playlist {mergedPlaylist.name} - Server response: {status}",
@@ -111,11 +155,10 @@ def sync(mergedPlaylist: Playlist, playlists: list[Playlist], authKey: str) -> N
         for track in playlist.tracks:
             if track not in mergedPlaylist.tracks:
                 try:
-                    addToPlaylist(
+                    client.addToPlaylist(
                         mergedPlaylist.id,
                         track.uri,
                         index + playlist.tracks.index(track),
-                        authKey,
                     )
                 except requests.exceptions.HTTPError as status:
                     logger.warning(
@@ -139,11 +182,10 @@ def sync(mergedPlaylist: Playlist, playlists: list[Playlist], authKey: str) -> N
             target_pos = index + playlist.tracks.index(track)
             if current_pos != target_pos:
                 try:
-                    reorderPlaylist(
+                    client.reorderPlaylist(
                         mergedPlaylist.id,
                         current_pos,
                         target_pos,
-                        authKey,
                     )
                 except requests.exceptions.HTTPError as status:
                     logger.warning(
@@ -162,6 +204,7 @@ def sync(mergedPlaylist: Playlist, playlists: list[Playlist], authKey: str) -> N
 
 
 def main():
+    setup_logger("data/sync.log")
     settings = load_settings()
     if not settings.get("merge_playlist"):
         logger.error("Configuration error - merge playlist not set")
@@ -169,16 +212,13 @@ def main():
     if not settings.get("playlists"):
         logger.error("Configuration error - source playlists not set")
         sys.exit(-5)
+    cache = load_cache()
 
-    authKey = getAuthKey(settings)
+    client = SpotifyClient(getAuthKey(settings), cache)
 
     mergedPlaylist, playlists = getPlaylists(
-        settings["merge_playlist"], settings["playlists"], authKey
+        settings["merge_playlist"], settings["playlists"], client
     )
 
-    sync(mergedPlaylist, playlists, authKey)
-
-
-if __name__ == "__main__":
-    setup_logger("data/sync.log")
-    main()
+    sync(mergedPlaylist, playlists, client)
+    save_cache(cache)

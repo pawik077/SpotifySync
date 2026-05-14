@@ -18,7 +18,7 @@ from PyQt6.QtGui import QColor, QPixmap
 
 from ..workers import CoverThread, PlaylistDetailsThread
 from ..dialogs import PlaylistPickerDialog
-from .._helpers import COVER_SIZE, ROW_HEIGHT, _format_owner, make_auth_key
+from .._helpers import COVER_SIZE, ROW_HEIGHT, format_owner, make_auth_key
 from ... import api as SpotifyAPI
 from ... import sync as SpotifySync
 
@@ -26,9 +26,10 @@ from ... import sync as SpotifySync
 class PlaylistsTab(QWidget):
     settings_changed = pyqtSignal(bool)  # True = unsaved changes, False = saved
 
-    def __init__(self, settings: dict):
+    def __init__(self, settings: dict, cache: dict):
         super().__init__()
         self._settings = settings
+        self._cache = cache
         self._auth_key = make_auth_key(settings.get("access_token", ""))
         self._merge_id = settings.get("merge_playlist", "")
         self._user_id: str = ""
@@ -143,7 +144,7 @@ class PlaylistsTab(QWidget):
         cover.setStyleSheet("background:#2a2a2a;margin:2px;border-radius:3px;")
         self._table.setCellWidget(row, 0, cover)
 
-        owner_str = _format_owner(owner, self._user_id)
+        owner_str = format_owner(owner, self._user_id)
         display_name = f"{name}\n{owner_str}" if owner_str else name
         was_blocked = self._table.signalsBlocked()
         self._table.blockSignals(True)
@@ -187,7 +188,7 @@ class PlaylistsTab(QWidget):
             lbl.setPixmap(scaled)
 
     def _fetch_cover_by_id(self, row: int, playlist_id: str):
-        t = PlaylistDetailsThread(playlist_id, self._auth_key)
+        t = PlaylistDetailsThread(playlist_id, self._auth_key, self._cache)
 
         def _on_details(
             _: str, name: str, url: str, owner: SpotifyAPI.User | None, r: int = row
@@ -196,7 +197,7 @@ class PlaylistsTab(QWidget):
             if name_item:
                 current = name_item.text().split("\n")[0]
                 display = name or current
-                owner_str = _format_owner(owner, self._user_id)
+                owner_str = format_owner(owner, self._user_id)
                 name_item.setText(f"{display}\n{owner_str}" if owner_str else display)
             if url:
                 self._load_cover(r, url)
@@ -249,7 +250,7 @@ class PlaylistsTab(QWidget):
             self._merge_id = pl.id
             self._mark_dirty()
             self._merge_name.setText(pl.name)
-            owner_str = _format_owner(pl.owner, self._user_id)
+            owner_str = format_owner(pl.owner, self._user_id)
             if owner_str:
                 self._merge_owner.setText(owner_str)
                 self._merge_owner.show()
@@ -365,13 +366,13 @@ class PlaylistsTab(QWidget):
         if not self._merge_id:
             return
         expected_id = self._merge_id
-        t = PlaylistDetailsThread(self._merge_id, self._auth_key)
+        t = PlaylistDetailsThread(self._merge_id, self._auth_key, self._cache)
 
         def _on_info(_: str, name: str, url: str, owner: SpotifyAPI.User | None):
             if self._merge_id != expected_id:
                 return
             self._merge_name.setText(name or expected_id)
-            owner_str = _format_owner(owner, self._user_id)
+            owner_str = format_owner(owner, self._user_id)
             if owner_str:
                 self._merge_owner.setText(owner_str)
                 self._merge_owner.show()

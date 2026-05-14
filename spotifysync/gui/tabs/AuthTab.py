@@ -6,7 +6,7 @@ from PyQt6.QtGui import QPixmap
 
 from ..workers import AuthThread, CoverThread, FetchUserThread, RefreshThread, StatusDot
 from ..dialogs import ClientIdDialog
-from .._helpers import COVER_SIZE, _make_circular, make_auth_key
+from .._helpers import COVER_SIZE, make_circular, make_auth_key
 from ... import api as SpotifyAPI
 from ... import sync as SpotifySync
 
@@ -98,7 +98,9 @@ class AuthTab(QWidget):
         self._refresh_thread.success.connect(self._on_refresh_ok)
         self._refresh_thread.revoked.connect(self._on_revoked)
         self._refresh_thread.failed.connect(
-            lambda _: self._set("red", "Refresh failed — check connection", enabled=True)
+            lambda _: self._set(
+                "red", "Refresh failed — check connection", enabled=True
+            )
         )
         self._refresh_thread.start()
 
@@ -161,7 +163,7 @@ class AuthTab(QWidget):
                 px = QPixmap()
                 px.loadFromData(data)
                 if not px.isNull():
-                    self._user_avatar.setPixmap(_make_circular(px, COVER_SIZE))
+                    self._user_avatar.setPixmap(make_circular(px, COVER_SIZE))
 
             self._load_image("user_image", user.image_url, callback=_set)
 
