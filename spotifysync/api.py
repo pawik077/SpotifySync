@@ -2,8 +2,6 @@ from typing import Any
 import requests
 from dataclasses import dataclass, field
 
-BASE_URL = "https://api.spotify.com/v1"
-
 
 @dataclass
 class User:
@@ -55,120 +53,210 @@ class Playlist:
     snapshot_id: str = ""
 
 
-def refresh(refresh_token: str, client_id: str) -> tuple[str, str, int]:
-    url = "https://accounts.spotify.com/api/token"
-    payload = {
-        "grant_type": "refresh_token",
-        "refresh_token": refresh_token,
-        "client_id": client_id,
-    }
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
-    }
-    response = requests.post(url, headers=headers, data=payload)
-    response.raise_for_status()
-    data = response.json()
-    return data["access_token"], data["refresh_token"], data["expires_in"]
+class SpotifyClient:
+    BASE_URL = "https://api.spotify.com/v1"
 
+    def __init__(self, authKey: str, cache: dict | None = None) -> None:
+        self._auth_key = authKey
+        self._cache = cache
 
-def getCurrentUser(authKey: str) -> User:
-    url = f"{BASE_URL}/me"
-    headers = {"Authorization": authKey}
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    data = response.json()
-    return User(
-        id=data["id"],
-        display_name=data.get("display_name", data["id"]),
-        image_url=data["images"][0]["url"] if data.get("images") else "",
-        followers=data["followers"]["total"] if data.get("followers") else None,
-    )
-
-
-def getCurrentUserPlaylists(authKey: str) -> list[Playlist]:
-    playlists = []
-    total = None
-    url = f"{BASE_URL}/me/playlists"
-    headers = {"Authorization": authKey}
-    params = {
-        "fields": "total,next,items(id,name,images(url),description,public,collaborative,owner.id,owner.display_name)"
-    }
-    while url is not None:
-        response = requests.get(url, headers=headers, params=params)
+    @staticmethod
+    def refresh(refresh_token: str, client_id: str) -> tuple[str, str, int]:
+        url = "https://accounts.spotify.com/api/token"
+        payload = {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": client_id,
+        }
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+        response = requests.post(url, headers=headers, data=payload)
         response.raise_for_status()
         data = response.json()
-        if total is None:
-            total = data["total"]
-        for item in data["items"]:
-            playlists.append(
-                Playlist(
-                    id=item["id"],
-                    name=item.get("name", ""),
-                    cover_url=item["images"][0]["url"] if item.get("images") else "",
-                    description=item.get("description", ""),
-                    public=item.get("public"),
-                    collaborative=item.get("collaborative"),
-                    # important: no followers info in /me/playlists
-                    owner=(
-                        User(
-                            id=item["owner"]["id"],
-                            display_name=item["owner"]["display_name"],
-                        )
-                        if item.get("owner")
-                        else None
-                    ),
-                )
-            )
-        url = data["next"]
-    if len(playlists) != total:
-        raise RuntimeError(
-            f"Incomplete response: expected {total} playlists, received {len(playlists)}"
-        )
-    return playlists
+        return data["access_token"], data["refresh_token"], data["expires_in"]
 
-
-def getPlaylistMetadata(
-    playlistId: str, authKey: str, cache: dict | None = None
-) -> Playlist:
-    url = f"{BASE_URL}/playlists/{playlistId}"
-    if cache is None:
-        cache = {}
-    if cache.get("metadata", {}).get(playlistId):
-        etag = cache["metadata"][playlistId].get("etag", "")
-        headers = {"Authorization": authKey, "If-None-Match": etag}
-    else:
-        headers = {"Authorization": authKey}
-    params = {
-        "fields": "id,name,images(url),description,public,collaborative,followers.total,owner.id,owner.display_name,snapshot_id"
-    }
-    response = requests.get(url, headers=headers, params=params)
-    response.raise_for_status()
-    if response.status_code == 304:
-        try:
-            data = cache["metadata"][playlistId]["data"]
-        except KeyError:
-            del cache["metadata"][playlistId]
-            raise KeyError("Cache malformed - deleting")
-    else:
+    def getCurrentUser(self) -> User:
+        url = f"{self.BASE_URL}/me"
+        headers = {"Authorization": self._auth_key}
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
         data = response.json()
-        cache.setdefault("metadata", {}).setdefault(playlistId, {})
-        cache["metadata"][playlistId]["etag"] = response.headers.get("etag", "")
-        cache["metadata"][playlistId]["data"] = data
-    return Playlist(
-        id=playlistId,
-        name=data.get("name", ""),
-        cover_url=data["images"][0]["url"] if data.get("images") else "",
-        description=data.get("description", ""),
-        public=data.get("public"),
-        collaborative=data.get("collaborative"),
-        followers=data["followers"]["total"] if data.get("followers") else None,
-        owner=(
-            User(id=data["owner"]["id"], display_name=data["owner"]["display_name"])
-            if data.get("owner")
-            else None
-        ),
-        snapshot_id=data.get("snapshot_id", ""),
-    )
+        return User(
+            id=data["id"],
+            display_name=data.get("display_name", data["id"]),
+            image_url=data["images"][0]["url"] if data.get("images") else "",
+            followers=data["followers"]["total"] if data.get("followers") else None,
+        )
+
+    def getCurrentUserPlaylists(self) -> list[Playlist]:
+        playlists = []
+        total = None
+        url = f"{self.BASE_URL}/me/playlists"
+        headers = {"Authorization": self._auth_key}
+        params = {
+            "fields": "total,next,items(id,name,images(url),description,public,collaborative,owner.id,owner.display_name)"
+        }
+        while url is not None:
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            data = response.json()
+            if total is None:
+                total = data["total"]
+            for item in data["items"]:
+                playlists.append(
+                    Playlist(
+                        id=item["id"],
+                        name=item.get("name", ""),
+                        cover_url=(
+                            item["images"][0]["url"] if item.get("images") else ""
+                        ),
+                        description=item.get("description", ""),
+                        public=item.get("public"),
+                        collaborative=item.get("collaborative"),
+                        # important: no followers info in /me/playlists
+                        owner=(
+                            User(
+                                id=item["owner"]["id"],
+                                display_name=item["owner"]["display_name"],
+                            )
+                            if item.get("owner")
+                            else None
+                        ),
+                    )
+                )
+            url = data["next"]
+        if len(playlists) != total:
+            raise RuntimeError(
+                f"Incomplete response: expected {total} playlists, received {len(playlists)}"
+            )
+        return playlists
+
+    def getPlaylistMetadata(self, playlistId: str) -> Playlist:
+        url = f"{self.BASE_URL}/playlists/{playlistId}"
+        if self._cache is None:
+            self._cache = {}
+        if self._cache.get("metadata", {}).get(playlistId):
+            etag = self._cache["metadata"][playlistId].get("etag", "")
+            headers = {"Authorization": self._auth_key, "If-None-Match": etag}
+        else:
+            headers = {"Authorization": self._auth_key}
+        params = {
+            "fields": "id,name,images(url),description,public,collaborative,followers.total,owner.id,owner.display_name,snapshot_id"
+        }
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        if response.status_code == 304:
+            try:
+                data = self._cache["metadata"][playlistId]["data"]
+            except KeyError:
+                del self._cache["metadata"][playlistId]
+                raise KeyError("Cache malformed - deleting")
+        else:
+            data = response.json()
+            self._cache.setdefault("metadata", {}).setdefault(playlistId, {})
+            self._cache["metadata"][playlistId]["etag"] = response.headers.get(
+                "etag", ""
+            )
+            self._cache["metadata"][playlistId]["data"] = data
+        return Playlist(
+            id=playlistId,
+            name=data.get("name", ""),
+            cover_url=data["images"][0]["url"] if data.get("images") else "",
+            description=data.get("description", ""),
+            public=data.get("public"),
+            collaborative=data.get("collaborative"),
+            followers=data["followers"]["total"] if data.get("followers") else None,
+            owner=(
+                User(id=data["owner"]["id"], display_name=data["owner"]["display_name"])
+                if data.get("owner")
+                else None
+            ),
+            snapshot_id=data.get("snapshot_id", ""),
+        )
+
+    def getPlaylistContents(
+        self, playlistId: str, snapshot_id: str = ""
+    ) -> list[Track]:
+        tracks = []
+        total = None
+        url = f"{self.BASE_URL}/playlists/{playlistId}/items"
+        if self._cache is None:
+            self._cache = {}
+        if (
+            snapshot_id
+            and self._cache.get("contents", {}).get(playlistId, {}).get("snapshot_id")
+            == snapshot_id
+        ):
+            try:
+                total = len(self._cache["contents"][playlistId]["items"])
+                for item in self._cache["contents"][playlistId]["items"]:
+                    track = _parse_track(item)
+                    if track is None:
+                        total -= 1
+                        continue
+                    tracks.append(track)
+                return tracks
+            except KeyError:
+                total = None
+                tracks = []
+                del self._cache["contents"][playlistId]  # malformed cache
+        headers = {"Authorization": self._auth_key}
+        params = {
+            "fields": "total,next,items(track(name,uri,artists(name),album(images(url),name,release_date,total_tracks,uri,artists(name))))"
+        }
+        items = []
+        while url is not None:
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            data = response.json()
+            items.extend(data["items"])
+            if total is None:
+                total = data["total"]
+            for item in data["items"]:
+                track = _parse_track(item)
+                if track is None:
+                    total -= 1
+                    continue
+                tracks.append(track)
+            url = data["next"]
+        if len(tracks) != total:
+            raise RuntimeError(
+                f"Incomplete response: expected {total} tracks for playlist {playlistId}, received {len(tracks)}"
+            )
+        self._cache.setdefault("contents", {})[playlistId] = {
+            "snapshot_id": snapshot_id,
+            "items": items,
+        }
+        return tracks
+
+    def addToPlaylist(
+        self, playlistId: str, uri: str, pos: int
+    ) -> requests.models.Response:
+        url = f"{self.BASE_URL}/playlists/{playlistId}/items"
+        headers = {"Authorization": self._auth_key, "Content-Type": "application/json"}
+        payload = {"uris": [uri], "position": pos}
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        return response
+
+    def removeFromPlaylist(self, playlistId: str, uri: str) -> requests.models.Response:
+        url = f"{self.BASE_URL}/playlists/{playlistId}/items"
+        headers = {"Authorization": self._auth_key}
+        payload: dict[str, Any] = {"items": [{"uri": uri}]}
+        response = requests.delete(url, headers=headers, json=payload)
+        response.raise_for_status()
+        return response
+
+    def reorderPlaylist(
+        self, playlistId: str, initPos: int, endPos: int
+    ) -> requests.models.Response:
+        url = f"{self.BASE_URL}/playlists/{playlistId}/items"
+        headers = {"Authorization": self._auth_key, "Content-Type": "application/json"}
+        payload: dict[str, Any] = {"range_start": initPos, "insert_before": endPos}
+        response = requests.put(url, headers=headers, json=payload)
+        response.raise_for_status()
+        return response
 
 
 def _parse_track(item: dict) -> Track | None:
@@ -205,92 +293,3 @@ def _parse_track(item: dict) -> Track | None:
         ),
         uri=item["track"].get("uri", ""),
     )
-
-
-def getPlaylistContents(
-    playlistId: str, authKey: str, cache: dict | None = None, snapshot_id: str = ""
-) -> list[Track]:
-    tracks = []
-    total = None
-    url = f"{BASE_URL}/playlists/{playlistId}/items"
-    if cache is None:
-        cache = {}
-    if (
-        snapshot_id
-        and cache.get("contents", {}).get(playlistId, {}).get("snapshot_id")
-        == snapshot_id
-    ):
-        try:
-            total = len(cache["contents"][playlistId]["items"])
-            for item in cache["contents"][playlistId]["items"]:
-                track = _parse_track(item)
-                if track is None:
-                    total -= 1
-                    continue
-                tracks.append(track)
-            return tracks
-        except KeyError:
-            total = None
-            tracks = []
-            del cache["contents"][playlistId]  # malformed cache
-    headers = {"Authorization": authKey}
-    params = {
-        "fields": "total,next,items(track(name,uri,artists(name),album(images(url),name,release_date,total_tracks,uri,artists(name))))"
-    }
-    items = []
-    while url is not None:
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        data = response.json()
-        items.extend(data["items"])
-        if total is None:
-            total = data["total"]
-        for item in data["items"]:
-            track = _parse_track(item)
-            if track is None:
-                total -= 1
-                continue
-            tracks.append(track)
-        url = data["next"]
-    if len(tracks) != total:
-        raise RuntimeError(
-            f"Incomplete response: expected {total} tracks for playlist {playlistId}, received {len(tracks)}"
-        )
-    cache.setdefault("contents", {})[playlistId] = {
-        "snapshot_id": snapshot_id,
-        "items": items,
-    }
-    return tracks
-
-
-def addToPlaylist(
-    playlistId: str, uri: str, pos: int, authKey: str
-) -> requests.models.Response:
-    url = f"{BASE_URL}/playlists/{playlistId}/items"
-    headers = {"Authorization": authKey, "Content-Type": "application/json"}
-    payload = {"uris": [uri], "position": pos}
-    response = requests.post(url, headers=headers, json=payload)
-    response.raise_for_status()
-    return response
-
-
-def removeFromPlaylist(
-    playlistId: str, uri: str, authKey: str
-) -> requests.models.Response:
-    url = f"{BASE_URL}/playlists/{playlistId}/items"
-    headers = {"Authorization": authKey}
-    payload: dict[str, Any] = {"items": [{"uri": uri}]}
-    response = requests.delete(url, headers=headers, json=payload)
-    response.raise_for_status()
-    return response
-
-
-def reorderPlaylist(
-    playlistId: str, initPos: int, endPos: int, authKey: str
-) -> requests.models.Response:
-    url = f"{BASE_URL}/playlists/{playlistId}/items"
-    headers = {"Authorization": authKey, "Content-Type": "application/json"}
-    payload: dict[str, Any] = {"range_start": initPos, "insert_before": endPos}
-    response = requests.put(url, headers=headers, json=payload)
-    response.raise_for_status()
-    return response
