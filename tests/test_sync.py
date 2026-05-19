@@ -3,7 +3,7 @@ from spotifysync.api import (
     Track,
     Playlist,
 )
-from spotifysync.sync import sync
+from spotifysync.sync import sync, SyncSummary
 from requests.exceptions import HTTPError
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -28,7 +28,7 @@ def test_removes_track_absent_from_all_sources():
     source = playlist("src", t1)  # t2 not present anywhere
     client = MagicMock()
 
-    sync(merged, [source], client)
+    sync(merged, [source], client, SyncSummary())
 
     client.removeFromPlaylist.assert_called_once_with("merged", "uri:2")
     assert t2 not in merged.tracks
@@ -40,7 +40,7 @@ def test_keeps_track_present_in_one_source():
     source = playlist("src", t1)
     client = MagicMock()
 
-    sync(merged, [source], client)
+    sync(merged, [source], client, SyncSummary())
 
     client.removeFromPlaylist.assert_not_called()
     assert t1 in merged.tracks
@@ -53,7 +53,7 @@ def test_keeps_track_present_in_at_least_one_source():
     src_b = playlist("src_b", t1)  # t1 present
     client = MagicMock()
 
-    sync(merged, [src_a, src_b], client)
+    sync(merged, [src_a, src_b], client, SyncSummary())
 
     client.removeFromPlaylist.assert_not_called()
 
@@ -65,7 +65,7 @@ def test_removes_two_adjacent_tracks():
     src_b = playlist("src_b", t4)
     client = MagicMock()
 
-    sync(merged, [src_a, src_b], client)
+    sync(merged, [src_a, src_b], client, SyncSummary())
 
     assert client.removeFromPlaylist.call_args_list == [
         call("merged", "uri:2"),
@@ -79,11 +79,13 @@ def test_remove_failure_keeps_track_in_merged():
     merged = playlist("merged", t1, t2)
     source = playlist("src", t1)
     client = MagicMock()
+    summary = SyncSummary()
 
     client.removeFromPlaylist.side_effect = HTTPError()
-    sync(merged, [source], client)
+    sync(merged, [source], client, summary)
 
     assert t2 in merged.tracks
+    assert len(summary.warnings) == 1
 
 
 # ── Add phase ─────────────────────────────────────────────────────────────────
@@ -95,7 +97,7 @@ def test_adds_track_missing_from_merged():
     source = playlist("src", t1)
     client = MagicMock()
 
-    sync(merged, [source], client)
+    sync(merged, [source], client, SyncSummary())
 
     client.addToPlaylist.assert_called_once_with("merged", "uri:1", 0)
     assert t1 in merged.tracks
@@ -108,7 +110,7 @@ def test_adds_at_correct_position_across_multiple_sources():
     src_b = playlist("src_b", t3)
     client = MagicMock()
 
-    sync(merged, [src_a, src_b], client)
+    sync(merged, [src_a, src_b], client, SyncSummary())
 
     assert client.addToPlaylist.call_args_list == [
         call("merged", "uri:1", 0),
@@ -123,7 +125,7 @@ def test_does_not_add_already_present_track():
     source = playlist("src", t1)
     client = MagicMock()
 
-    sync(merged, [source], client)
+    sync(merged, [source], client, SyncSummary())
 
     client.addToPlaylist.assert_not_called()
 
@@ -133,11 +135,13 @@ def test_add_failure_does_not_insert():
     merged = playlist("merged", t1)
     source = playlist("src", t1, t2)
     client = MagicMock()
+    summary = SyncSummary()
 
     client.addToPlaylist.side_effect = HTTPError()
-    sync(merged, [source], client)
+    sync(merged, [source], client, summary)
 
     assert t2 not in merged.tracks
+    assert len(summary.warnings) == 1
 
 
 # ── Reorder phase ─────────────────────────────────────────────────────────────
@@ -150,7 +154,7 @@ def test_reorders_incorrectly_placed_track():
     src_b = playlist("src_b", t3, t4)
     client = MagicMock()
 
-    sync(merged, [src_a, src_b], client)
+    sync(merged, [src_a, src_b], client, SyncSummary())
 
     client.reorderPlaylist.assert_called_once_with("merged", 3, 2)
     assert merged.tracks == [t1, t2, t3, t4]
@@ -163,7 +167,7 @@ def test_does_not_reorder_correctly_placed_track():
     src_b = playlist("src_b", t3, t4)
     client = MagicMock()
 
-    sync(merged, [src_a, src_b], client)
+    sync(merged, [src_a, src_b], client, SyncSummary())
 
     client.reorderPlaylist.assert_not_called()
 
@@ -173,11 +177,13 @@ def test_reorder_failure_does_not_reorder():
     merged = playlist("merged", t1, t3, t2)
     source = playlist("src", t1, t2, t3)
     client = MagicMock()
+    summary = SyncSummary()
 
     client.reorderPlaylist.side_effect = HTTPError()
-    sync(merged, [source], client)
+    sync(merged, [source], client, summary)
 
     assert merged.tracks == [t1, t3, t2]
+    assert len(summary.warnings) == 2
 
 
 # ── Full sync integration test ────────────────────────────────────────────────
@@ -200,7 +206,7 @@ def test_full_sync_correct():
     src_d = playlist("src_d", t6)
     client = MagicMock()
 
-    sync(merged, [src_a, src_b, src_c, src_d], client)
+    sync(merged, [src_a, src_b, src_c, src_d], client, SyncSummary())
 
     client.removeFromPlaylist.assert_called_once_with("merged", "uri:7")
     client.addToPlaylist.assert_called_once_with("merged", "uri:5", 4)
