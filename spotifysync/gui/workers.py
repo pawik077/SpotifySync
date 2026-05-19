@@ -147,20 +147,19 @@ class FetchUserThread(QThread):
 
 
 class SyncThread(QThread):
-    success = pyqtSignal()
+    success = pyqtSignal(object)
     failed = pyqtSignal(str)
 
     def run(self):
         try:
-            SpotifySync.main()
-            self.success.emit()
-        except SystemExit as e:
-            if e.code not in (None, 0):
-                self.failed.emit(f"Sync exited (code {e.code})")
-            else:
-                self.success.emit()
+            summary = SpotifySync.run_sync()
         except Exception as e:
             self.failed.emit(str(e))
+            return
+        if summary.errors:
+            self.failed.emit(summary.errors[0])
+        else:
+            self.success.emit(summary)
 
 
 class StatusDot(QLabel):

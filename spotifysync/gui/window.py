@@ -150,11 +150,19 @@ class MainWindow(QMainWindow):
         self._sync_thread.failed.connect(self._on_sync_failed)
         self._sync_thread.start()
 
-    def _on_sync_ok(self):
+    def _on_sync_ok(self, summary: SpotifySync.SyncSummary):
         self._cache.update(SpotifySync.load_cache(CACHE_FILE))
         self._sync_btn.setEnabled(True)
         self._sync_dot.set_color("green")
-        self._sync_status.setText("Sync complete")
+
+        parts = [
+            f"{len(items)} {name}"
+            for name in ("added", "removed", "reordered", "warnings")
+            if (items := getattr(summary, name))
+        ]
+        self._sync_status.setText(
+            "Sync complete" + (f" - {', '.join(parts)}" if parts else "")
+        )
 
     def _on_sync_failed(self, message: str):
         self._sync_btn.setEnabled(True)
