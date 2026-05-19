@@ -20,6 +20,7 @@ class SyncSummary:
     removed: list[Track] = field(default_factory=list)
     added: list[tuple[Track, Playlist]] = field(default_factory=list)
     reordered: list[tuple[Track, int, int]] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     exit_code: int = 0
 
@@ -160,9 +161,9 @@ def sync(
             try:
                 client.removeFromPlaylist(mergedPlaylist.id, track.uri)
             except requests.exceptions.HTTPError as status:
-                logger.warning(
-                    f"Error while removing {track.title} by {track.artist} from merged playlist {mergedPlaylist.name} - Server response: {status}",
-                )
+                warn_msg = f"Error while removing {track.title} by {track.artist} from merged playlist {mergedPlaylist.name} - Server response: {status}"
+                logger.warning(warn_msg)
+                summary.warnings.append(warn_msg)
                 continue
             mergedPlaylist.tracks.remove(track)
             logger.info(
@@ -181,9 +182,9 @@ def sync(
                         index + playlist.tracks.index(track),
                     )
                 except requests.exceptions.HTTPError as status:
-                    logger.warning(
-                        f"Error while adding {track.title} by {track.artist} from {playlist.name} to merged playlist {mergedPlaylist.name} - Server response: {status}"
-                    )
+                    warn_msg = f"Error while adding {track.title} by {track.artist} from {playlist.name} to merged playlist {mergedPlaylist.name} - Server response: {status}"
+                    logger.warning(warn_msg)
+                    summary.warnings.append(warn_msg)
                     continue
                 mergedPlaylist.tracks.insert(
                     index + playlist.tracks.index(track), track
@@ -209,9 +210,9 @@ def sync(
                         target_pos,
                     )
                 except requests.exceptions.HTTPError as status:
-                    logger.warning(
-                        f"Error while moving {track.title} by {track.artist} from position {current_pos} to {target_pos} - Server response: {status}"
-                    )
+                    warn_msg = f"Error while moving {track.title} by {track.artist} from position {current_pos} to {target_pos} - Server response: {status}"
+                    logger.warning(warn_msg)
+                    summary.warnings.append(warn_msg)
                     continue
                 mergedPlaylist.tracks.remove(track)
                 mergedPlaylist.tracks.insert(
