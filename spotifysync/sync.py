@@ -3,8 +3,10 @@ import json
 import requests
 import time
 import logging
+from dataclasses import dataclass, field
 
 from .api import (
+    Track,
     Playlist,
     SpotifyClient,
 )
@@ -13,16 +15,33 @@ from .utils import setup_logger
 logger = logging.getLogger("SpotifySync")
 
 
+@dataclass
+class SyncSummary:
+    removed: list[Track] = field(default_factory=list)
+    added: list[tuple[Track, Playlist]] = field(default_factory=list)
+    reordered: list[tuple[Track, int, int]] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    exit_code: int = 0
+
+
+class SyncError(Exception):
+    def __init__(self, message: str, code: int = -1):
+        super().__init__(message)
+        self.code = code
+
+
 def load_settings(filename: str = "data/settings.json") -> dict:
     try:
         with open(filename, "r") as s:
             settings = json.load(s)
-    except FileNotFoundError:
-        logger.error(f"Error while reading settings file - {filename!r} not found")
-        sys.exit(-2)
-    except json.decoder.JSONDecodeError:
-        logger.error("Error while reading settings file - JSON decoding failed")
-        sys.exit(-3)
+    except FileNotFoundError as e:
+        raise SyncError(
+            f"Error while reading settings file - {filename!r} not found", -2
+        ) from e
+    except json.decoder.JSONDecodeError as e:
+        raise SyncError(
+            "Error while reading settings file - JSON decoding failed", -3
+        ) from e
     settings["filename"] = filename
     return settings
 
@@ -55,25 +74,22 @@ def getAuthKey(settings: dict) -> str:
         "access_token"
     ):
         if not settings.get("refresh_token"):
-            logger.error("Authentication error - missing refresh token")
-            sys.exit(-1)
+            raise SyncError("Authentication error - missing refresh token", -1)
         if not settings.get("client_id"):
-            logger.error("Authentication error - missing client id")
-            sys.exit(-1)
+            raise SyncError("Authentication error - missing client id", -1)
         try:
             settings["access_token"], settings["refresh_token"], expires_in = (
                 SpotifyClient.refresh(settings["refresh_token"], settings["client_id"])
             )
-        except requests.exceptions.ConnectionError:
-            logger.error(
-                "Error while refreshing authorization token - Server connection error"
-            )
-            sys.exit(-10)
-        except requests.exceptions.HTTPError as status:
-            logger.error(
-                f"Error while refreshing authorization token - Server response: {status}"
-            )
-            sys.exit(-1)
+        except requests.exceptions.ConnectionError as e:
+            raise SyncError(
+                "Error while refreshing authorization token - Server connection error",
+                -10,
+            ) from e
+        except requests.exceptions.HTTPError as e:
+            raise SyncError(
+                f"Error while refreshing authorization token - Server response: {e}", -1
+            ) from e
         settings["expires_at"] = int(time.time()) + expires_in
         save_settings(settings, settings["filename"])
     return "Bearer " + settings["access_token"]
@@ -88,11 +104,11 @@ def getPlaylists(
         mergedPlaylist.tracks = client.getPlaylistContents(
             mergedPlaylistId, mergedPlaylist.snapshot_id
         )
-    except requests.exceptions.HTTPError as status:
-        logger.error(
-            f"Error while downloading merged playlist {mergedPlaylistId} contents - Server response: {status}"
-        )
-        sys.exit(-2)
+    except requests.exceptions.HTTPError as e:
+        raise SyncError(
+            f"Error while downloading merged playlist {mergedPlaylistId} contents - Server response: {e}",
+            -2,
+        ) from e
     except KeyError:
         logger.warning("Playlist metadata cache malformed - retrying")
         try:
@@ -100,11 +116,11 @@ def getPlaylists(
             mergedPlaylist.tracks = client.getPlaylistContents(
                 mergedPlaylistId, mergedPlaylist.snapshot_id
             )
-        except requests.exceptions.HTTPError as status:
-            logger.error(
-                f"Error while downloading merged playlist {mergedPlaylistId} contents - Server response: {status}"
-            )
-            sys.exit(-2)
+        except requests.exceptions.HTTPError as e:
+            raise SyncError(
+                f"Error while downloading merged playlist {mergedPlaylistId} contents - Server response: {e}",
+                -2,
+            ) from e
     for playlistId in playlistIds:
         try:
             playlist = client.getPlaylistMetadata(playlistId)
@@ -112,11 +128,11 @@ def getPlaylists(
                 playlistId, playlist.snapshot_id
             )
             playlists.append(playlist)
-        except requests.exceptions.HTTPError as status:
-            logger.error(
-                f"Error while downloading playlist {playlistId} contents - Server response: {status}"
-            )
-            sys.exit(-2)
+        except requests.exceptions.HTTPError as e:
+            raise SyncError(
+                f"Error while downloading playlist {playlistId} contents - Server response: {e}",
+                -2,
+            ) from e
         except KeyError:
             logger.warning("Playlist metadata cache malformed - retrying")
             try:
@@ -125,17 +141,20 @@ def getPlaylists(
                     playlistId, playlist.snapshot_id
                 )
                 playlists.append(playlist)
-            except requests.exceptions.HTTPError as status:
-                logger.error(
-                    f"Error while downloading playlist {playlistId} contents - Server response: {status}"
-                )
-                sys.exit(-2)
+            except requests.exceptions.HTTPError as e:
+                raise SyncError(
+                    f"Error while downloading playlist {playlistId} contents - Server response: {e}",
+                    -2,
+                ) from e
     return mergedPlaylist, playlists
 
 
 def sync(
-    mergedPlaylist: Playlist, playlists: list[Playlist], client: SpotifyClient
-) -> None:
+    mergedPlaylist: Playlist,
+    playlists: list[Playlist],
+    client: SpotifyClient,
+    summary: SyncSummary,
+):
     for track in list(mergedPlaylist.tracks):
         if not any(track in playlist.tracks for playlist in playlists):
             try:
@@ -149,6 +168,7 @@ def sync(
             logger.info(
                 f"Removed {track.title} by {track.artist} from merged playlist {mergedPlaylist.name}"
             )
+            summary.removed.append(track)
 
     index = 0
     for playlist in playlists:
@@ -171,6 +191,7 @@ def sync(
                 logger.info(
                     f"Added {track.title} by {track.artist} from {playlist.name} to merged playlist {mergedPlaylist.name}"
                 )
+                summary.added.append((track, playlist))
         index += len(playlist.tracks)
 
     index = 0
@@ -200,25 +221,61 @@ def sync(
                 logger.info(
                     f"Moved {track.title} by {track.artist} from position {current_pos} to {target_pos}"
                 )
+                summary.reordered.append((track, current_pos, target_pos))
         index += len(playlist.tracks)
 
 
-def main():
+def run_sync():
     setup_logger("data/sync.log")
-    settings = load_settings()
+    summary = SyncSummary()
+    try:
+        settings = load_settings()
+    except SyncError as e:
+        err_msg = str(e)
+        logger.error(err_msg)
+        summary.errors.append(err_msg)
+        summary.exit_code = e.code
+        return summary
     if not settings.get("merge_playlist"):
-        logger.error("Configuration error - merge playlist not set")
-        sys.exit(-4)
+        err_msg = "Configuration error - merge playlist not set"
+        logger.error(err_msg)
+        summary.errors.append(err_msg)
+        summary.exit_code = -4
+        return summary
     if not settings.get("playlists"):
-        logger.error("Configuration error - source playlists not set")
-        sys.exit(-5)
+        err_msg = "Configuration error - source playlists not set"
+        logger.error(err_msg)
+        summary.errors.append(err_msg)
+        summary.exit_code = -5
+        return summary
     cache = load_cache()
 
-    client = SpotifyClient(getAuthKey(settings), cache)
+    try:
+        authKey = getAuthKey(settings)
+    except SyncError as e:
+        err_msg = str(e)
+        logger.error(err_msg)
+        summary.errors.append(err_msg)
+        summary.exit_code = e.code
+        return summary
+    client = SpotifyClient(authKey, cache)
 
-    mergedPlaylist, playlists = getPlaylists(
-        settings["merge_playlist"], settings["playlists"], client
-    )
+    try:
+        mergedPlaylist, playlists = getPlaylists(
+            settings["merge_playlist"], settings["playlists"], client
+        )
+    except SyncError as e:
+        err_msg = str(e)
+        logger.error(err_msg)
+        summary.errors.append(err_msg)
+        summary.exit_code = e.code
+        return summary
 
-    sync(mergedPlaylist, playlists, client)
+    sync(mergedPlaylist, playlists, client, summary)
     save_cache(cache)
+    return summary
+
+
+def main():
+    summary = run_sync()
+    sys.exit(summary.exit_code)
