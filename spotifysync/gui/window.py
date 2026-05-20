@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from .tabs import AuthTab, LogTab, PlaylistsTab
+from .tabs import AuthTab, LogTab, NotificationsTab, PlaylistsTab
 from ._helpers import make_auth_key
 from .workers import StatusDot, SyncThread
 from ..utils import setup_logger
@@ -87,15 +87,18 @@ class MainWindow(QMainWindow):
         self._auth_tab = AuthTab(self._settings)
         self._playlists_tab = PlaylistsTab(self._settings, self._cache)
         self._log_tab = LogTab()
+        self._notifications_tab = NotificationsTab(self._settings)
 
         self._auth_tab.authenticated.connect(self._on_authenticated)
         self._auth_tab.token_cleared.connect(self._on_token_cleared)
         self._auth_tab.user_changed.connect(self._playlists_tab.set_user)
         self._playlists_tab.settings_changed.connect(self._on_settings_changed)
+        self._notifications_tab.settings_changed.connect(self._on_settings_changed)
 
         self._tabs.addTab(self._auth_tab, "Authentication")
         self._tabs.addTab(self._playlists_tab, "Playlists")
         self._tabs.addTab(self._log_tab, "Log")
+        self._tabs.addTab(self._notifications_tab, "Notifications")
 
         bar = QFrame()
         bar.setObjectName("bottomBar")
@@ -247,6 +250,24 @@ class MainWindow(QMainWindow):
                 padding: 8px;
             }
             QLineEdit:focus { border-color: #1DB954; }
+            QTableWidget QLineEdit {
+                padding: 2px 6px;
+                border-radius: 0;
+            }
+            QComboBox {
+                background-color: #282828;
+                color: #FFFFFF;
+                border: none;
+                padding: 4px 8px;
+            }
+            QComboBox::drop-down { border: none; width: 20px; }
+            QComboBox QAbstractItemView {
+                background-color: #282828;
+                color: #FFFFFF;
+                selection-background-color: #1DB954;
+                selection-color: #000000;
+                outline: none;
+            }
             QListWidget {
                 background-color: #181818;
                 border: 1px solid #282828;
