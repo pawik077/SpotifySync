@@ -3,26 +3,11 @@ import json
 import requests
 import time
 import logging
-from dataclasses import dataclass, field
 
-from .api import (
-    Track,
-    Playlist,
-    SpotifyClient,
-)
+from .api import Playlist, SpotifyClient, SyncSummary
 from .utils import setup_logger
 
 logger = logging.getLogger("SpotifySync")
-
-
-@dataclass
-class SyncSummary:
-    removed: list[Track] = field(default_factory=list)
-    added: list[tuple[Track, Playlist]] = field(default_factory=list)
-    reordered: list[tuple[Track, int, int]] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
-    errors: list[str] = field(default_factory=list)
-    exit_code: int = 0
 
 
 class SyncError(Exception):

@@ -21,6 +21,7 @@ from ._helpers import make_auth_key
 from .workers import StatusDot, SyncThread
 from ..utils import setup_logger
 from .. import sync as SpotifySync
+from .. import api as SpotifyApi
 
 SETTINGS_FILE = "data/settings.json"
 CACHE_FILE = "data/cache.json"
@@ -150,7 +151,7 @@ class MainWindow(QMainWindow):
         self._sync_thread.failed.connect(self._on_sync_failed)
         self._sync_thread.start()
 
-    def _on_sync_ok(self, summary: SpotifySync.SyncSummary):
+    def _on_sync_ok(self, summary: SpotifyApi.SyncSummary):
         self._cache.update(SpotifySync.load_cache(CACHE_FILE))
         self._sync_btn.setEnabled(True)
         self._sync_dot.set_color("green")

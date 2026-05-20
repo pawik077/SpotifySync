@@ -53,6 +53,16 @@ class Playlist:
     snapshot_id: str = ""
 
 
+@dataclass
+class SyncSummary:
+    removed: list[Track] = field(default_factory=list)
+    added: list[tuple[Track, Playlist]] = field(default_factory=list)
+    reordered: list[tuple[Track, int, int]] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    exit_code: int = 0
+
+
 class SpotifyClient:
     BASE_URL = "https://api.spotify.com/v1"
 
