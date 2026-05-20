@@ -6,6 +6,7 @@ import logging
 
 from .api import Playlist, SpotifyClient, SyncSummary
 from .utils import setup_logger
+from . import notifier
 
 logger = logging.getLogger("SpotifySync")
 
@@ -259,6 +260,7 @@ def run_sync():
 
     sync(mergedPlaylist, playlists, client, summary)
     save_cache(cache)
+    notifier.notify(summary, settings.get("notify_urls", []))
     return summary
 
 
