@@ -186,6 +186,7 @@ class MainWindow(QMainWindow):
                 color: #FFFFFF;
                 font-size: 13px;
             }
+            QLabel { background: transparent; }
             QPushButton {
                 background-color: #1DB954;
                 color: #000000;
