@@ -245,7 +245,7 @@ def run_sync():
         summary.errors.append(err_msg)
         summary.exit_code = e.code
         return summary
-    client = SpotifyClient(authKey, cache)
+    client = SpotifyClient(authKey, cache if settings.get("use_cache", True) else None)
 
     try:
         mergedPlaylist, playlists = getPlaylists(

@@ -188,7 +188,8 @@ class PlaylistsTab(QWidget):
             lbl.setPixmap(scaled)
 
     def _fetch_cover_by_id(self, row: int, playlist_id: str):
-        t = PlaylistDetailsThread(playlist_id, self._auth_key, self._cache)
+        cache = self._cache if self._settings.get("use_cache", True) else None
+        t = PlaylistDetailsThread(playlist_id, self._auth_key, cache)
 
         def _on_details(
             _: str, name: str, url: str, owner: SpotifyAPI.User | None, r: int = row
@@ -366,7 +367,8 @@ class PlaylistsTab(QWidget):
         if not self._merge_id:
             return
         expected_id = self._merge_id
-        t = PlaylistDetailsThread(self._merge_id, self._auth_key, self._cache)
+        cache = self._cache if self._settings.get("use_cache", True) else None
+        t = PlaylistDetailsThread(self._merge_id, self._auth_key, cache)
 
         def _on_info(_: str, name: str, url: str, owner: SpotifyAPI.User | None):
             if self._merge_id != expected_id:

@@ -115,7 +115,7 @@ class BatchCoverThread(QThread):
 class PlaylistDetailsThread(QThread):
     loaded = pyqtSignal(str, str, str, object)  # playlist_id, name, image_url, owner
 
-    def __init__(self, playlist_id: str, auth_key: str, cache: dict):
+    def __init__(self, playlist_id: str, auth_key: str, cache: dict | None):
         super().__init__()
         self._id = playlist_id
         self._auth_key = auth_key

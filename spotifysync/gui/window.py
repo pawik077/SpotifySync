@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from .tabs import AuthTab, LogTab, NotificationsTab, PlaylistsTab
+from .tabs import AuthTab, LogTab, NotificationsTab, PlaylistsTab, SettingsTab
 from ._helpers import make_auth_key
 from .workers import StatusDot, SyncThread
 from ..utils import setup_logger
@@ -88,6 +88,7 @@ class MainWindow(QMainWindow):
         self._playlists_tab = PlaylistsTab(self._settings, self._cache)
         self._log_tab = LogTab()
         self._notifications_tab = NotificationsTab(self._settings)
+        self._settings_tab = SettingsTab(self._settings, self._cache)
 
         self._auth_tab.authenticated.connect(self._on_authenticated)
         self._auth_tab.token_cleared.connect(self._on_token_cleared)
@@ -99,6 +100,7 @@ class MainWindow(QMainWindow):
         self._tabs.addTab(self._playlists_tab, "Playlists")
         self._tabs.addTab(self._log_tab, "Log")
         self._tabs.addTab(self._notifications_tab, "Notifications")
+        self._tabs.addTab(self._settings_tab, "Settings")
 
         bar = QFrame()
         bar.setObjectName("bottomBar")
@@ -156,6 +158,7 @@ class MainWindow(QMainWindow):
 
     def _on_sync_ok(self, summary: SpotifyApi.SyncSummary):
         self._cache.update(SpotifySync.load_cache(CACHE_FILE))
+        self._settings_tab.refresh_cache_info()
         self._sync_btn.setEnabled(True)
         self._sync_dot.set_color("green")
 
@@ -268,6 +271,18 @@ class MainWindow(QMainWindow):
                 selection-color: #000000;
                 outline: none;
             }
+            QCheckBox { spacing: 8px; }
+            QCheckBox::indicator {
+                width: 16px; height: 16px;
+                border-radius: 3px;
+                border: 1px solid #535353;
+                background: #282828;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #1DB954;
+                border-color: #1DB954;
+            }
+            QCheckBox::indicator:hover { border-color: #B3B3B3; }
             QListWidget {
                 background-color: #181818;
                 border: 1px solid #282828;
