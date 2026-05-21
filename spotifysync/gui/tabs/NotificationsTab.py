@@ -16,6 +16,9 @@ from ...api import SyncSummary, Track, Playlist
 from ...notifier import Verbosity, notify
 from ... import sync as SpotifySync
 
+import importlib.util
+_APPRISE_AVAILABLE = importlib.util.find_spec("apprise") is not None
+
 _VERBOSITY_LABELS = ["Short", "Medium", "Full"]
 
 
@@ -35,6 +38,12 @@ class NotificationsTab(QWidget):
         lay.setContentsMargins(12, 12, 12, 12)
 
         lay.addWidget(QLabel("Notification Services"))
+
+        if not _APPRISE_AVAILABLE:
+            warn = QLabel("Apprise is not installed — notifications will not be sent. Install it with: pip install apprise")
+            warn.setWordWrap(True)
+            warn.setStyleSheet("color:#FFC947;font-size:11px;")
+            lay.addWidget(warn)
 
         self._table = QTableWidget(0, 2)
         self._table.setHorizontalHeaderLabels(["URL", "Verbosity"])
@@ -67,6 +76,7 @@ class NotificationsTab(QWidget):
         self._add_btn.clicked.connect(self._add_row)
         self._remove_btn.clicked.connect(self._remove_row)
         self._test_btn.clicked.connect(self._test_notify)
+        self._test_btn.setEnabled(_APPRISE_AVAILABLE)
         lay.addLayout(btn_row)
 
         lay.addStretch()
