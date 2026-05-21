@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from .tabs import AuthTab, LogTab, NotificationsTab, PlaylistsTab, SettingsTab
+from .tabs import AuthTab, LogTab, PlaylistsTab, SettingsTab
 from ._helpers import make_auth_key
 from .workers import StatusDot, SyncThread
 from ..utils import setup_logger
@@ -87,19 +87,17 @@ class MainWindow(QMainWindow):
         self._auth_tab = AuthTab(self._settings)
         self._playlists_tab = PlaylistsTab(self._settings, self._cache)
         self._log_tab = LogTab()
-        self._notifications_tab = NotificationsTab(self._settings)
         self._settings_tab = SettingsTab(self._settings, self._cache)
 
         self._auth_tab.authenticated.connect(self._on_authenticated)
         self._auth_tab.token_cleared.connect(self._on_token_cleared)
         self._auth_tab.user_changed.connect(self._playlists_tab.set_user)
         self._playlists_tab.settings_changed.connect(self._on_settings_changed)
-        self._notifications_tab.settings_changed.connect(self._on_settings_changed)
+        self._settings_tab.settings_changed.connect(self._on_settings_changed)
 
         self._tabs.addTab(self._auth_tab, "Authentication")
         self._tabs.addTab(self._playlists_tab, "Playlists")
         self._tabs.addTab(self._log_tab, "Log")
-        self._tabs.addTab(self._notifications_tab, "Notifications")
         self._tabs.addTab(self._settings_tab, "Settings")
 
         bar = QFrame()
@@ -221,6 +219,13 @@ class MainWindow(QMainWindow):
             }
             QTabBar::tab:selected { color: #FFFFFF; border-bottom-color: #1DB954; }
             QTabBar::tab:hover    { color: #FFFFFF; }
+            #innerTabs::pane { border: none; background: #121212; }
+            #innerTabs QTabBar::tab {
+                padding: 6px 16px;
+                font-size: 12px;
+                border-bottom: 1px solid transparent;
+            }
+            #innerTabs QTabBar::tab:selected { border-bottom-color: #1DB954; }
             QTableWidget {
                 background-color: #181818;
                 border: none;
