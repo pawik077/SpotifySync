@@ -68,7 +68,7 @@ class PlaylistsTab(QWidget):
         vhr.setVisible(False)
         self._table.setShowGrid(False)
         self._table.itemChanged.connect(self._on_id_edited)
-        lay.addWidget(self._table)
+        lay.addWidget(self._table, 1)
 
         btn_row = QHBoxLayout()
         self._add_btn = QPushButton("+ Add")
@@ -115,8 +115,6 @@ class PlaylistsTab(QWidget):
         merge_row.addStretch()
         merge_row.addWidget(self._merge_btn)
         lay.addLayout(merge_row)
-
-        lay.addStretch()
 
         save_btn = QPushButton("Save Settings")
         save_btn.clicked.connect(self._save)

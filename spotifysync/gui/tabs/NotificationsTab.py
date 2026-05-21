@@ -63,7 +63,7 @@ class NotificationsTab(QWidget):
             | QAbstractItemView.EditTrigger.EditKeyPressed
         )
         self._table.itemChanged.connect(self._mark_dirty)
-        lay.addWidget(self._table)
+        lay.addWidget(self._table, 1)
 
         btn_row = QHBoxLayout()
         self._add_btn = QPushButton("+ Add")
@@ -78,8 +78,6 @@ class NotificationsTab(QWidget):
         self._test_btn.clicked.connect(self._test_notify)
         self._test_btn.setEnabled(_APPRISE_AVAILABLE)
         lay.addLayout(btn_row)
-
-        lay.addStretch()
 
         save_btn = QPushButton("Save Settings")
         save_btn.clicked.connect(self._save)
