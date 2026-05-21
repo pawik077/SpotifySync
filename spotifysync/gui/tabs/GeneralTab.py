@@ -8,11 +8,14 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from PyQt6.QtCore import pyqtSignal
 
 from ... import sync as SpotifySync
 
 
 class GeneralTab(QWidget):
+    expert_mode_changed = pyqtSignal(bool)
+
     def __init__(self, settings: dict, cache: dict):
         super().__init__()
         self._settings = settings
@@ -47,6 +50,14 @@ class GeneralTab(QWidget):
         self._clear_btn.clicked.connect(self._clear_cache)
         lay.addLayout(btn_row)
 
+        lay.addSpacing(8)
+        lay.addWidget(QLabel("Display"))
+
+        self._expert_cb = QCheckBox("Expert mode")
+        self._expert_cb.setChecked(self._settings.get("expert_mode", False))
+        self._expert_cb.toggled.connect(self._on_expert_toggled)
+        lay.addWidget(self._expert_cb)
+
         lay.addStretch()
 
     def refresh_cache_info(self):
@@ -79,6 +90,11 @@ class GeneralTab(QWidget):
         self._cache.clear()
         SpotifySync.save_cache(self._cache)
         self.refresh_cache_info()
+
+    def _on_expert_toggled(self, checked: bool):
+        self._settings["expert_mode"] = checked
+        SpotifySync.save_settings(self._settings)
+        self.expert_mode_changed.emit(checked)
 
     def update_settings(self, settings: dict):
         self._settings = settings

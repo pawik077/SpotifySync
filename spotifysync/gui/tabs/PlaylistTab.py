@@ -38,6 +38,7 @@ class PlaylistsTab(QWidget):
         self._build_ui()
         self._load_table()
         self._update_auth_state()
+        self.set_expert_mode(settings.get("expert_mode", False))
         if self._auth_key and time.time() < settings.get("expires_at", 0):
             self._load_all_covers()
             self._load_merge_info()
@@ -404,6 +405,9 @@ class PlaylistsTab(QWidget):
 
     def set_user(self, user):  # SpotifyAPI.User | None
         self._user_id = user.id if user is not None else ""
+
+    def set_expert_mode(self, enabled: bool):
+        self._table.setColumnHidden(2, not enabled)
 
     def update_settings(self, settings: dict):
         self._settings = settings

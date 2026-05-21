@@ -94,6 +94,7 @@ class MainWindow(QMainWindow):
         self._auth_tab.user_changed.connect(self._playlists_tab.set_user)
         self._playlists_tab.settings_changed.connect(self._on_settings_changed)
         self._settings_tab.settings_changed.connect(self._on_settings_changed)
+        self._settings_tab.expert_mode_changed.connect(self._playlists_tab.set_expert_mode)
 
         self._tabs.addTab(self._auth_tab, "Authentication")
         self._tabs.addTab(self._playlists_tab, "Playlists")

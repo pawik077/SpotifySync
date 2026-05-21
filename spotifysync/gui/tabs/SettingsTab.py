@@ -7,6 +7,7 @@ from .NotificationsTab import NotificationsTab
 
 class SettingsTab(QWidget):
     settings_changed = pyqtSignal(bool)
+    expert_mode_changed = pyqtSignal(bool)
 
     def __init__(self, settings: dict, cache: dict):
         super().__init__()
@@ -20,6 +21,7 @@ class SettingsTab(QWidget):
         self._notifications = NotificationsTab(settings)
 
         self._notifications.settings_changed.connect(self.settings_changed)
+        self._general.expert_mode_changed.connect(self.expert_mode_changed)
 
         self._tabs.addTab(self._general, "General")
         self._tabs.addTab(self._notifications, "Notifications")
