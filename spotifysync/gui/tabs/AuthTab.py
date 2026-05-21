@@ -22,6 +22,7 @@ class AuthTab(QWidget):
         self._auth_thread = None
         self._refresh_thread = None
         self._user_thread = None
+        self._avatar_thread = None
         self._build_ui()
         self._init_state()
 
@@ -149,6 +150,7 @@ class AuthTab(QWidget):
     def _fetch_user(self, auth_key: str):
         self._user_thread = FetchUserThread(auth_key)
         self._user_thread.loaded.connect(self._on_user_loaded)
+        self._user_thread.finished.connect(lambda: setattr(self, "_user_thread", None))
         self._user_thread.start()
 
     def _on_user_loaded(self, user: SpotifyAPI.User):
@@ -171,10 +173,10 @@ class AuthTab(QWidget):
         self.user_changed.emit(user)
 
     def _load_image(self, tag, url, callback):
-        self._user_thread = CoverThread(tag, url)
-        self._user_thread.loaded.connect(callback)
-        self._user_thread.finished.connect(lambda: setattr(self, "_user_thread", None))
-        self._user_thread.start()
+        self._avatar_thread = CoverThread(tag, url)
+        self._avatar_thread.loaded.connect(callback)
+        self._avatar_thread.finished.connect(lambda: setattr(self, "_avatar_thread", None))
+        self._avatar_thread.start()
 
     def _set(self, color: str, text: str, *, enabled: bool):
         self._dot.set_color(color)
