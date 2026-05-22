@@ -74,6 +74,7 @@ class MainWindow(QMainWindow):
         self._settings = load_settings()
         self._cache = SpotifySync.load_cache(CACHE_FILE)
         self._sync_thread = None
+        self._dirty = False
         self._build_ui()
         self._apply_style()
 
@@ -123,6 +124,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
     def _on_settings_changed(self, dirty: bool):
+        self._dirty = dirty
         self._sync_btn.setEnabled(not dirty)
         if dirty:
             self._sync_status.setText("Save settings before syncing")
@@ -176,6 +178,17 @@ class MainWindow(QMainWindow):
         self._sync_status.setText(f"Sync failed: {message}")
 
     def closeEvent(self, a0):
+        if self._dirty:
+            ret = QMessageBox.warning(
+                self,
+                "Unsaved Changes",
+                "You have unsaved settings changes. Close and discard them?",
+                QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+            )
+            if ret == QMessageBox.StandardButton.Cancel:
+                if a0:
+                    a0.ignore()
+                return
         SpotifySync.save_cache(self._cache, CACHE_FILE)
         super().closeEvent(a0)
 
