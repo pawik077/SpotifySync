@@ -38,8 +38,10 @@ python run.py
 Switch to the **Playlists** tab:
 
 1. Click **+ Add** to select one or more source playlists from your library.
-2. Click **Change…** next to Merge Playlist to select the playlist that will be kept in sync.
-3. Click **Save Settings**.
+2. Click **×** on any row to remove a source playlist.
+3. Use **↑** / **↓** to reorder source playlists.
+4. Click **Change…** next to Merge Playlist to select the playlist that will be kept in sync.
+5. Click **Save Settings**.
 
 The merge playlist must be owned by you or collaborative. Source playlists can be any playlist you follow.
 
@@ -55,6 +57,14 @@ python run.py --sync
 
 The headless mode reads from `data/settings.json` and refreshes the access token automatically. Authenticate via the GUI at least once before using headless mode.
 
+## Settings
+
+Open the **Settings** tab to configure:
+
+- **General** — cache controls (view size, prune unused entries, clear entirely), use-cache toggle, and expert mode switch.
+- **Notifications** — add [Apprise](https://github.com/caronc/apprise) notification URLs with per-URL verbosity (Short / Medium / Full).
+- **Raw Settings** *(expert mode only)* — view and directly edit `data/settings.json` as JSON with syntax highlighting.
+
 ## Logs
 
-Sync activity is written to `data/sync.log`. The **Log** tab in the GUI shows the log in reverse-chronological order with live updates and search.
+Sync activity is written to `data/sync.log`. The **Log** tab shows the log in reverse-chronological order with live updates and search.
