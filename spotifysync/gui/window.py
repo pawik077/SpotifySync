@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from PyQt6.QtCore import Qt
 
 from .tabs import AuthTab, LogTab, PlaylistsTab, SettingsTab
 from ._helpers import make_auth_key
@@ -123,9 +124,9 @@ class MainWindow(QMainWindow):
         bar_lay.addSpacing(8)
         bar_lay.addWidget(self._dry_run_btn)
         bar_lay.addStretch()
-        bar_lay.addWidget(self._sync_status)
+        bar_lay.addWidget(self._sync_status, 0, Qt.AlignmentFlag.AlignVCenter)
         bar_lay.addSpacing(8)
-        bar_lay.addWidget(self._sync_dot)
+        bar_lay.addWidget(self._sync_dot, 0, Qt.AlignmentFlag.AlignVCenter)
 
         main_lay.addWidget(self._tabs)
         main_lay.addWidget(bar)
