@@ -17,6 +17,7 @@ from ...notifier import Verbosity, notify
 from ... import sync as SpotifySync
 
 import importlib.util
+
 _APPRISE_AVAILABLE = importlib.util.find_spec("apprise") is not None
 
 _VERBOSITY_LABELS = ["Short", "Medium", "Full"]
@@ -40,18 +41,22 @@ class NotificationsTab(QWidget):
         lay.addWidget(QLabel("Notification Services"))
 
         if not _APPRISE_AVAILABLE:
-            warn = QLabel("Apprise is not installed — notifications will not be sent. Install it with: pip install apprise")
+            warn = QLabel(
+                "Apprise is not installed — notifications will not be sent. Install it with: pip install apprise"
+            )
             warn.setWordWrap(True)
             warn.setStyleSheet("color:#FFC947;font-size:11px;")
             lay.addWidget(warn)
 
-        self._table = QTableWidget(0, 2)
-        self._table.setHorizontalHeaderLabels(["URL", "Verbosity"])
+        self._table = QTableWidget(0, 3)
+        self._table.setHorizontalHeaderLabels(["URL", "Verbosity", ""])
         hdr = self._table.horizontalHeader()
         assert hdr is not None
         hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
         self._table.setColumnWidth(1, 110)
+        hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        self._table.setColumnWidth(2, 44)
         vhr = self._table.verticalHeader()
         assert vhr is not None
         vhr.setDefaultSectionSize(32)
@@ -67,14 +72,12 @@ class NotificationsTab(QWidget):
 
         btn_row = QHBoxLayout()
         self._add_btn = QPushButton("+ Add")
-        self._remove_btn = QPushButton("− Remove")
         self._test_btn = QPushButton("Test")
-        for b in (self._add_btn, self._remove_btn, self._test_btn):
+        for b in (self._add_btn, self._test_btn):
             b.setObjectName("small")
             btn_row.addWidget(b)
         btn_row.addStretch()
         self._add_btn.clicked.connect(self._add_row)
-        self._remove_btn.clicked.connect(self._remove_row)
         self._test_btn.clicked.connect(self._test_notify)
         self._test_btn.setEnabled(_APPRISE_AVAILABLE)
         lay.addLayout(btn_row)
@@ -103,17 +106,23 @@ class NotificationsTab(QWidget):
         self._table.setItem(row, 0, QTableWidgetItem(url))
         self._table.blockSignals(False)
         self._table.setCellWidget(row, 1, self._make_verbosity_combo(verbosity))
+        self._table.setCellWidget(row, 2, self._make_remove_btn())
 
     def _add_row(self):
         self._append_row()
         self._mark_dirty()
 
-    def _remove_row(self):
-        rows = sorted({i.row() for i in self._table.selectedIndexes()}, reverse=True)
-        if rows:
-            for row in rows:
-                self._table.removeRow(row)
-            self._mark_dirty()
+    def _make_remove_btn(self) -> QPushButton:
+        btn = QPushButton("×")
+        btn.setObjectName("small")
+        def _remove():
+            for row in range(self._table.rowCount()):
+                if self._table.cellWidget(row, 2) is btn:
+                    self._table.removeRow(row)
+                    self._mark_dirty()
+                    break
+        btn.clicked.connect(_remove)
+        return btn
 
     def _collect_urls(self) -> list[dict]:
         urls = []

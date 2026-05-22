@@ -50,14 +50,16 @@ class PlaylistsTab(QWidget):
 
         lay.addWidget(QLabel("Source Playlists"))
 
-        self._table = QTableWidget(0, 3)
-        self._table.setHorizontalHeaderLabels(["", "Name", "Playlist ID"])
+        self._table = QTableWidget(0, 4)
+        self._table.setHorizontalHeaderLabels(["", "Name", "Playlist ID", ""])
         hdr = self._table.horizontalHeader()
         assert hdr is not None
         hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         self._table.setColumnWidth(0, ROW_HEIGHT + 4)
         hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        hdr.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
+        self._table.setColumnWidth(3, 44)
         self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._table.setEditTriggers(
             QAbstractItemView.EditTrigger.DoubleClicked
@@ -72,15 +74,13 @@ class PlaylistsTab(QWidget):
 
         btn_row = QHBoxLayout()
         self._add_btn = QPushButton("+ Add")
-        self._remove_btn = QPushButton("− Remove")
         self._up_btn = QPushButton("↑")
         self._down_btn = QPushButton("↓")
-        for b in (self._add_btn, self._remove_btn, self._up_btn, self._down_btn):
+        for b in (self._add_btn, self._up_btn, self._down_btn):
             b.setObjectName("small")
             btn_row.addWidget(b)
         btn_row.addStretch()
         self._add_btn.clicked.connect(self._open_add)
-        self._remove_btn.clicked.connect(self._remove_row)
         self._up_btn.clicked.connect(self._move_up)
         self._down_btn.clicked.connect(self._move_down)
         lay.addLayout(btn_row)
@@ -152,6 +152,7 @@ class PlaylistsTab(QWidget):
         id_item.setForeground(QColor("#B3B3B3"))
         self._table.setItem(row, 2, id_item)
         self._table.blockSignals(was_blocked)
+        self._table.setCellWidget(row, 3, self._make_remove_btn())
 
         if fetch_cover and self._auth_key and playlist_id:
             if image_url:
@@ -273,12 +274,17 @@ class PlaylistsTab(QWidget):
 
                 self._load_cover("merge", pl.cover_url, callback=_set_merge_cover)
 
-    def _remove_row(self):
-        rows = sorted({i.row() for i in self._table.selectedIndexes()}, reverse=True)
-        if rows:
-            self._mark_dirty()
-        for row in rows:
-            self._table.removeRow(row)
+    def _make_remove_btn(self) -> QPushButton:
+        btn = QPushButton("×")
+        btn.setObjectName("small")
+        def _remove():
+            for row in range(self._table.rowCount()):
+                if self._table.cellWidget(row, 3) is btn:
+                    self._table.removeRow(row)
+                    self._mark_dirty()
+                    break
+        btn.clicked.connect(_remove)
+        return btn
 
     def _move_up(self):
         row = self._table.currentRow()
