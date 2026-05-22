@@ -150,9 +150,13 @@ class SyncThread(QThread):
     success = pyqtSignal(object)
     failed = pyqtSignal(str)
 
+    def __init__(self, dry_run: bool = False):
+        super().__init__()
+        self._dry_run = dry_run
+
     def run(self):
         try:
-            summary = SpotifySync.run_sync()
+            summary = SpotifySync.run_sync(self._dry_run)
         except Exception as e:
             self.failed.emit(str(e))
             return

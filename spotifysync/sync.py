@@ -141,42 +141,45 @@ def sync(
     playlists: list[Playlist],
     client: SpotifyClient,
     summary: SyncSummary,
+    dry_run: bool = False,
 ):
     for track in list(mergedPlaylist.tracks):
         if not any(track in playlist.tracks for playlist in playlists):
-            try:
-                client.removeFromPlaylist(mergedPlaylist.id, track.uri)
-            except requests.exceptions.HTTPError as status:
-                warn_msg = f"Error while removing {track.title} by {track.artist} from merged playlist {mergedPlaylist.name} - Server response: {status}"
-                logger.warning(warn_msg)
-                summary.warnings.append(warn_msg)
-                continue
+            if not dry_run:
+                try:
+                    client.removeFromPlaylist(mergedPlaylist.id, track.uri)
+                except requests.exceptions.HTTPError as status:
+                    warn_msg = f"Error while removing {track.title} by {track.artist} from merged playlist {mergedPlaylist.name} - Server response: {status}"
+                    logger.warning(warn_msg)
+                    summary.warnings.append(warn_msg)
+                    continue
+                logger.info(
+                    f"Removed {track.title} by {track.artist} from merged playlist {mergedPlaylist.name}"
+                )
             mergedPlaylist.tracks.remove(track)
-            logger.info(
-                f"Removed {track.title} by {track.artist} from merged playlist {mergedPlaylist.name}"
-            )
             summary.removed.append(track)
 
     index = 0
     for playlist in playlists:
         for track in playlist.tracks:
             if track not in mergedPlaylist.tracks:
-                try:
-                    client.addToPlaylist(
-                        mergedPlaylist.id,
-                        track.uri,
-                        index + playlist.tracks.index(track),
+                if not dry_run:
+                    try:
+                        client.addToPlaylist(
+                            mergedPlaylist.id,
+                            track.uri,
+                            index + playlist.tracks.index(track),
+                        )
+                    except requests.exceptions.HTTPError as status:
+                        warn_msg = f"Error while adding {track.title} by {track.artist} from {playlist.name} to merged playlist {mergedPlaylist.name} - Server response: {status}"
+                        logger.warning(warn_msg)
+                        summary.warnings.append(warn_msg)
+                        continue
+                    logger.info(
+                        f"Added {track.title} by {track.artist} from {playlist.name} to merged playlist {mergedPlaylist.name}"
                     )
-                except requests.exceptions.HTTPError as status:
-                    warn_msg = f"Error while adding {track.title} by {track.artist} from {playlist.name} to merged playlist {mergedPlaylist.name} - Server response: {status}"
-                    logger.warning(warn_msg)
-                    summary.warnings.append(warn_msg)
-                    continue
                 mergedPlaylist.tracks.insert(
                     index + playlist.tracks.index(track), track
-                )
-                logger.info(
-                    f"Added {track.title} by {track.artist} from {playlist.name} to merged playlist {mergedPlaylist.name}"
                 )
                 summary.added.append((track, playlist))
         index += len(playlist.tracks)
@@ -189,30 +192,31 @@ def sync(
             current_pos = mergedPlaylist.tracks.index(track)
             target_pos = index + playlist.tracks.index(track)
             if current_pos != target_pos:
-                try:
-                    client.reorderPlaylist(
-                        mergedPlaylist.id,
-                        current_pos,
-                        target_pos,
+                if not dry_run:
+                    try:
+                        client.reorderPlaylist(
+                            mergedPlaylist.id,
+                            current_pos,
+                            target_pos,
+                        )
+                    except requests.exceptions.HTTPError as status:
+                        warn_msg = f"Error while moving {track.title} by {track.artist} from position {current_pos} to {target_pos} - Server response: {status}"
+                        logger.warning(warn_msg)
+                        summary.warnings.append(warn_msg)
+                        continue
+                    logger.info(
+                        f"Moved {track.title} by {track.artist} from position {current_pos} to {target_pos}"
                     )
-                except requests.exceptions.HTTPError as status:
-                    warn_msg = f"Error while moving {track.title} by {track.artist} from position {current_pos} to {target_pos} - Server response: {status}"
-                    logger.warning(warn_msg)
-                    summary.warnings.append(warn_msg)
-                    continue
                 mergedPlaylist.tracks.remove(track)
                 mergedPlaylist.tracks.insert(
                     target_pos,
                     track,
                 )
-                logger.info(
-                    f"Moved {track.title} by {track.artist} from position {current_pos} to {target_pos}"
-                )
                 summary.reordered.append((track, current_pos, target_pos))
         index += len(playlist.tracks)
 
 
-def run_sync():
+def run_sync(dry_run: bool = False):
     setup_logger("data/sync.log")
     summary = SyncSummary()
     try:
@@ -258,9 +262,10 @@ def run_sync():
         summary.exit_code = e.code
         return summary
 
-    sync(mergedPlaylist, playlists, client, summary)
-    save_cache(cache)
-    notifier.notify(summary, settings.get("notify_urls", []))
+    sync(mergedPlaylist, playlists, client, summary, dry_run=dry_run)
+    if not dry_run:
+        save_cache(cache)
+        notifier.notify(summary, settings.get("notify_urls", []))
     return summary
 
 

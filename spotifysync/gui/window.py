@@ -74,6 +74,7 @@ class MainWindow(QMainWindow):
         self._settings = load_settings()
         self._cache = SpotifySync.load_cache(CACHE_FILE)
         self._sync_thread = None
+        self._dry_run_thread = None
         self._dirty = False
         self._build_ui()
         self._apply_style()
@@ -95,7 +96,9 @@ class MainWindow(QMainWindow):
         self._auth_tab.user_changed.connect(self._playlists_tab.set_user)
         self._playlists_tab.settings_changed.connect(self._on_settings_changed)
         self._settings_tab.settings_changed.connect(self._on_settings_changed)
-        self._settings_tab.expert_mode_changed.connect(self._playlists_tab.set_expert_mode)
+        self._settings_tab.expert_mode_changed.connect(
+            self._playlists_tab.set_expert_mode
+        )
 
         self._tabs.addTab(self._auth_tab, "Authentication")
         self._tabs.addTab(self._playlists_tab, "Playlists")
@@ -109,11 +112,16 @@ class MainWindow(QMainWindow):
 
         self._sync_btn = QPushButton("Run Sync")
         self._sync_btn.clicked.connect(self._run_sync)
+        self._dry_run_btn = QPushButton("Dry Run")
+        self._dry_run_btn.setObjectName("secondary")
+        self._dry_run_btn.clicked.connect(self._run_dry_run)
         self._sync_status = QLabel("Ready")
         self._sync_status.setStyleSheet("color:#B3B3B3;")
         self._sync_dot = StatusDot("green")
 
         bar_lay.addWidget(self._sync_btn)
+        bar_lay.addSpacing(8)
+        bar_lay.addWidget(self._dry_run_btn)
         bar_lay.addStretch()
         bar_lay.addWidget(self._sync_status)
         bar_lay.addSpacing(8)
@@ -126,6 +134,7 @@ class MainWindow(QMainWindow):
     def _on_settings_changed(self, dirty: bool):
         self._dirty = dirty
         self._sync_btn.setEnabled(not dirty)
+        self._dry_run_btn.setEnabled(not dirty)
         if dirty:
             self._sync_status.setText("Save settings before syncing")
             self._sync_dot.set_color("grey")
@@ -176,6 +185,69 @@ class MainWindow(QMainWindow):
         self._sync_btn.setEnabled(True)
         self._sync_dot.set_color("red")
         self._sync_status.setText(f"Sync failed: {message}")
+
+    def _run_dry_run(self):
+        if (self._sync_thread and self._sync_thread.isRunning()) or (
+            self._dry_run_thread and self._dry_run_thread.isRunning()
+        ):
+            return
+        self._sync_btn.setEnabled(False)
+        self._dry_run_btn.setEnabled(False)
+        self._sync_status.setText("Dry running…")
+        self._dry_run_thread = SyncThread(dry_run=True)
+        self._dry_run_thread.success.connect(self._on_dry_run_ok)
+        self._dry_run_thread.failed.connect(self._on_dry_run_failed)
+        self._dry_run_thread.start()
+
+    @staticmethod
+    def _format_dry_run_summary(summary: SpotifyApi.SyncSummary) -> str:
+        if not any(
+            [summary.added, summary.removed, summary.reordered, summary.warnings]
+        ):
+            return "Nothing to sync"
+        removed = (
+            ""
+            if not summary.removed
+            else "Removed tracks:\n"
+            + "\n".join([f"{x.artist} - {x.title}" for x in summary.removed])
+        )
+        added = (
+            ""
+            if not summary.added
+            else "Added tracks:\n"
+            + "\n".join(
+                [f"{x[0].artist} - {x[0].title} ({x[1].name})" for x in summary.added]
+            )
+        )
+        reordered = (
+            ""
+            if not summary.reordered
+            else "Reordered tracks:\n"
+            + "\n".join(
+                [
+                    f"{x[0].artist} - {x[0].title} (from {x[1]} to {x[2]})"
+                    for x in summary.reordered
+                ]
+            )
+        )
+        warnings = (
+            "" if not summary.warnings else "Warnings:\n" + "\n".join(summary.warnings)
+        )  # not used, left in case we add more warnings later
+        return "Dry run results:\n" + "\n".join(
+            x for x in [removed, added, reordered, warnings] if x
+        )
+
+    def _on_dry_run_ok(self, summary: SpotifyApi.SyncSummary):
+        self._sync_btn.setEnabled(True)
+        self._dry_run_btn.setEnabled(True)
+        self._sync_status.setText("Dry run complete")
+        text = self._format_dry_run_summary(summary)
+        QMessageBox.information(self, "Dry Run Result", text)
+
+    def _on_dry_run_failed(self, message: str):
+        self._sync_btn.setEnabled(True)
+        self._dry_run_btn.setEnabled(True)
+        self._sync_status.setText(f"Dry run failed: {message}")
 
     def closeEvent(self, a0):
         if self._dirty:
