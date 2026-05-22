@@ -285,7 +285,7 @@ class PlaylistsTab(QWidget):
 
     def _make_remove_btn(self) -> QPushButton:
         btn = QPushButton("×")
-        btn.setObjectName("small")
+        btn.setObjectName("delete")
 
         def _remove():
             for row in range(self._table.rowCount()):

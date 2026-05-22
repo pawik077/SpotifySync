@@ -296,6 +296,16 @@ class MainWindow(QMainWindow):
                 font-weight: normal;
                 min-width: 0;
             }
+            QPushButton#delete {
+                background-color: transparent;
+                color: #808080;
+                border: none;
+                border-radius: 4px;
+                padding: 0px 4px;
+                font-size: 15px;
+                min-width: 0;
+            }
+            QPushButton#delete:hover { color: #E63946; }
             QTabWidget::pane    { border: none; background: #121212; }
             QTabBar::tab {
                 background: #121212;
