@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QHeaderView,
+    QInputDialog,
     QLabel,
     QPushButton,
     QTableWidget,
@@ -74,15 +75,18 @@ class PlaylistsTab(QWidget):
 
         btn_row = QHBoxLayout()
         self._add_btn = QPushButton("+ Add")
+        self._add_by_id_btn = QPushButton("+ Add by ID…")
         self._up_btn = QPushButton("↑")
         self._down_btn = QPushButton("↓")
-        for b in (self._add_btn, self._up_btn, self._down_btn):
+        for b in (self._add_btn, self._add_by_id_btn, self._up_btn, self._down_btn):
             b.setObjectName("small")
             btn_row.addWidget(b)
         btn_row.addStretch()
         self._add_btn.clicked.connect(self._open_add)
+        self._add_by_id_btn.clicked.connect(self._add_by_id)
         self._up_btn.clicked.connect(self._move_up)
         self._down_btn.clicked.connect(self._move_down)
+        self._add_by_id_btn.hide()
         lay.addLayout(btn_row)
 
         sep = QFrame()
@@ -105,6 +109,10 @@ class PlaylistsTab(QWidget):
         self._merge_btn = QPushButton("Change…")
         self._merge_btn.setObjectName("small")
         self._merge_btn.clicked.connect(self._open_merge)
+        self._merge_by_id_btn = QPushButton("Set by ID…")
+        self._merge_by_id_btn.setObjectName("small")
+        self._merge_by_id_btn.clicked.connect(self._set_merge_by_id)
+        self._merge_by_id_btn.hide()
         merge_row.addWidget(self._merge_cover)
         merge_row.addSpacing(8)
         info_col = QVBoxLayout()
@@ -113,6 +121,7 @@ class PlaylistsTab(QWidget):
         info_col.addWidget(self._merge_owner)
         merge_row.addLayout(info_col)
         merge_row.addStretch()
+        merge_row.addWidget(self._merge_by_id_btn)
         merge_row.addWidget(self._merge_btn)
         lay.addLayout(merge_row)
 
@@ -277,12 +286,14 @@ class PlaylistsTab(QWidget):
     def _make_remove_btn(self) -> QPushButton:
         btn = QPushButton("×")
         btn.setObjectName("small")
+
         def _remove():
             for row in range(self._table.rowCount()):
                 if self._table.cellWidget(row, 3) is btn:
                     self._table.removeRow(row)
                     self._mark_dirty()
                     break
+
         btn.clicked.connect(_remove)
         return btn
 
@@ -410,8 +421,36 @@ class PlaylistsTab(QWidget):
     def set_user(self, user):  # SpotifyAPI.User | None
         self._user_id = user.id if user is not None else ""
 
+    def _add_by_id(self):
+        text, ok = QInputDialog.getText(self, "Add by ID", "Playlist ID:")
+        if not ok:
+            return
+        playlist_id = text.strip()
+        if not playlist_id or playlist_id in self._get_all_ids():
+            return
+        self._append_row("", playlist_id)
+        self._mark_dirty()
+
+    def _set_merge_by_id(self):
+        text, ok = QInputDialog.getText(
+            self, "Set Merge Playlist by ID", "Playlist ID:"
+        )
+        if not ok:
+            return
+        playlist_id = text.strip()
+        if not playlist_id:
+            return
+        self._merge_id = playlist_id
+        self._mark_dirty()
+        self._merge_name.setText(playlist_id)
+        self._merge_owner.hide()
+        self._merge_cover.clear()
+        self._load_merge_info()
+
     def set_expert_mode(self, enabled: bool):
         self._table.setColumnHidden(2, not enabled)
+        self._add_by_id_btn.setVisible(enabled)
+        self._merge_by_id_btn.setVisible(enabled)
 
     def update_settings(self, settings: dict):
         self._settings = settings
