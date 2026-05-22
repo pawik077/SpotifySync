@@ -1,6 +1,7 @@
 from collections import defaultdict
 from enum import IntEnum
 import logging
+import apprise
 
 from .api import SyncSummary
 
@@ -81,11 +82,6 @@ def notify(summary: SyncSummary, notify_urls: list[dict]) -> None:
             summary.warnings,
         ]
     ):
-        return
-    try:
-        import apprise
-    except ImportError:
-        logger.warning("Apprise not installed - skipping notification")
         return
     by_verbosity: dict[Verbosity, list[str]] = defaultdict(list)
     for notifier in notify_urls:
