@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from .tabs import AuthTab, LogTab, PlaylistsTab, SettingsTab
-from ._helpers import make_auth_key
+from ._helpers import make_app_icon, make_auth_key
 from .workers import StatusDot, SyncThread
 from ..utils import setup_logger
 from .. import sync as SpotifySync
@@ -415,6 +415,9 @@ class MainWindow(QMainWindow):
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("SpotifySync")
+    icon = make_app_icon()
+    if not icon.isNull():
+        app.setWindowIcon(icon)
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
